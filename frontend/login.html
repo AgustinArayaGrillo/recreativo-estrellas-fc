@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recreativo Estrellas F.C. — Acceso</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: var(--negro);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Fondo con foto difuminada */
+    .bg-cover {
+      position: fixed;
+      inset: 0;
+      background: url('../assets/fotos/488160418_1471092664186469_7818115757013939030_n.jpg') center/cover no-repeat;
+      filter: blur(4px) brightness(0.18);
+      transform: scale(1.05);
+      z-index: 0;
+    }
+
+    /* Degradado vertical encima */
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(13,13,13,0.6), rgba(13,13,13,0.95));
+      z-index: 1;
+    }
+
+    .login-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 420px;
+      padding: 1rem;
+    }
+
+    /* Header del club */
+    .club-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .club-header img {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      margin-bottom: 1rem;
+      filter: drop-shadow(0 0 20px rgba(245,197,24,0.4));
+    }
+
+    .club-header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 2px;
+      color: var(--blanco);
+      line-height: 1.1;
+    }
+
+    .club-header h1 span {
+      color: var(--amarillo);
+    }
+
+    .club-header p {
+      color: var(--gris);
+      font-size: 0.8rem;
+      margin-top: 0.35rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Separador */
+    .divider {
+      width: 50px;
+      height: 2px;
+      background: var(--amarillo);
+      margin: 1rem auto;
+      border-radius: 2px;
+    }
+
+    /* Card del formulario */
+    .login-card {
+      background: rgba(26,26,26,0.92);
+      border: 1px solid var(--negro-borde);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .login-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--blanco);
+      margin-bottom: 0.3rem;
+    }
+
+    .login-card p {
+      font-size: 0.8rem;
+      color: var(--gris);
+      margin-bottom: 1.75rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--gris-claro);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.4rem;
+    }
+
+    .form-group .input-icon {
+      position: relative;
+    }
+
+    .form-group .input-icon span {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1rem;
+      color: var(--gris);
+    }
+
+    .form-group input {
+      width: 100%;
+      background: var(--negro);
+      border: 1.5px solid var(--negro-borde);
+      border-radius: 8px;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      color: var(--blanco);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--amarillo);
+    }
+
+    .btn-login {
+      width: 100%;
+      background: var(--amarillo);
+      color: var(--negro);
+      border: none;
+      border-radius: 8px;
+      padding: 0.85rem;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: all 0.2s;
+    }
+
+    .btn-login:hover {
+      background: var(--amarillo-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(245,197,24,0.3);
+    }
+
+    .btn-login:active {
+      transform: translateY(0);
+    }
+
+    .login-error {
+      background: rgba(231,76,60,0.12);
+      border: 1px solid rgba(231,76,60,0.3);
+      color: var(--rojo-error);
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      font-size: 0.82rem;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .login-error.visible {
+      display: block;
+    }
+
+    .footer-login {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.72rem;
+      color: var(--gris);
+    }
+
+    .footer-login strong {
+      color: var(--amarillo);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-cover"></div>
+  <div class="bg-gradient"></div>
+
+  <div class="login-container">
+
+    <div class="club-header">
+      <img src="../assets/escudo/escudo.png" alt="Escudo Recreativo Estrellas FC" />
+      <h1>Recreativo <span>Estrellas</span> F.C.</h1>
+      <p>Jovita, Córdoba</p>
+      <div class="divider"></div>
+    </div>
+
+    <div class="login-card">
+      <h2>Acceso al sistema</h2>
+      <p>Ingresá con tus credenciales de administrador</p>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Usuario</label>
+          <div class="input-icon">
+            <span>👤</span>
+            <input type="text" id="usuario" placeholder="Ingresá tu usuario" autocomplete="username" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Contraseña</label>
+          <div class="input-icon">
+            <span>🔒</span>
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="btnLogin">INGRESAR</button>
+
+        <div class="login-error" id="loginError">
+          Usuario o contraseña incorrectos.
+        </div>
+      </form>
+    </div>
+
+    <div class="footer-login">
+      Sistema de Gestión de Socios &mdash; <strong>REFC</strong>
+    </div>
+
+  </div>
+
+  <script>
+    const API = '/api';
+
+    async function handleLogin(e) {
+      e.preventDefault();
+
+      const usuario  = document.getElementById('usuario').value.trim();
+      const password = document.getElementById('password').value;
+      const errorDiv = document.getElementById('loginError');
+      const btn      = document.getElementById('btnLogin');
+
+      btn.textContent = 'INGRESANDO...';
+      btn.disabled = true;
+      errorDiv.classList.remove('visible');
+
+      try {
+        const res  = await fetch(`${API}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        sessionStorage.setItem('refc_token', data.token);
+        sessionStorage.setItem('refc_user', JSON.stringify({ usuario: data.usuario, rol: data.rol }));
+        window.location.href = 'dashboard.html';
+
+      } catch (err) {
+        errorDiv.textContent = err.message === 'Usuario o contraseña incorrectos'
+          ? 'Usuario o contraseña incorrectos.'
+          : 'No se pudo conectar con el servidor.';
+        errorDiv.classList.add('visible');
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+        btn.textContent = 'INGRESAR';
+        btn.disabled = false;
+      }
+    }
+
+    if (sessionStorage.getItem('refc_token')) {
+      window.location.href = 'dashboard.html';
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagos — Recreativo Estrellas F.C.</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .meses-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .mes-btn {
+      background: var(--negro);
+      border: 1.5px solid var(--negro-borde);
+      border-radius: 8px;
+      padding: 0.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.75rem;
+      color: var(--gris-claro);
+    }
+
+    .mes-btn:hover { border-color: var(--amarillo); color: var(--amarillo); }
+    .mes-btn.pagado { background: rgba(46,204,113,0.1); border-color: rgba(46,204,113,0.4); color: var(--verde-ok); cursor: default; }
+    .mes-btn.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: var(--negro); font-weight: 700; }
+
+    .socio-search-result {
+      background: var(--negro);
+      border: 1px solid var(--negro-borde);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--negro-borde);
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.6rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--gris);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+      font-family: 'Poppins', sans-serif;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+
+    .tab:hover { color: var(--blanco); }
+    .tab.active { color: var(--amarillo); border-bottom-color: var(--amarillo); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">
+      <img src="../assets/escudo/escudo.png" alt="REFC" />
+      <span>Recreativo <em>Estrellas</em> F.C.</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">Inicio</a></li>
+      <li><a href="socios.html">Socios</a></li>
+      <li><a href="pagos.html" class="active">Pagos</a></li>
+    </ul>
+    <div class="navbar-user">
+      <span id="navUsuario">—</span>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- CONTENIDO -->
+  <div class="main-content">
+
+    <div class="page-header">
+      <h1>Gestión de <span>Pagos</span></h1>
+      <p>Registrá cuotas y consultá el historial de pagos</p>
+    </div>
+
+    <!-- TABS -->
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('registrar')">Registrar pago</button>
+      <button class="tab" onclick="switchTab('historial')">Historial</button>
+      <button class="tab" onclick="switchTab('deudores')">Con deuda</button>
+    </div>
+
+    <!-- ══════════════════════════════════ -->
+    <!-- TAB: REGISTRAR PAGO               -->
+    <!-- ══════════════════════════════════ -->
+    <div class="tab-content active" id="tab-registrar">
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Buscar socio</h2>
+        </div>
+
+        <div style="display:flex;gap:0.75rem;margin-bottom:0.75rem">
+          <input type="number" id="buscarDNIPago" placeholder="Ingresá el DNI del socio..."
+            style="flex:1;background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.7rem 1rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.95rem"
+            onkeydown="if(event.key==='Enter') buscarSocioPago()" />
+          <button class="btn btn-primary" onclick="buscarSocioPago()">Buscar</button>
+        </div>
+
+        <div id="resultadoPagoBusqueda" style="display:none">
+          <div class="socio-search-result">
+            <div>
+              <div style="font-weight:600;color:var(--blanco);font-size:1rem" id="pagoSocioNombre"></div>
+              <div style="font-size:0.8rem;color:var(--gris);margin-top:0.2rem" id="pagoSocioInfo"></div>
+            </div>
+            <span class="badge" id="pagoSocioEstado"></span>
+          </div>
+
+          <!-- Selección de meses -->
+          <div style="margin-top:1.5rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem">
+              <h3 style="font-size:0.85rem;color:var(--gris-claro);font-weight:600">Seleccioná el/los mes/es a pagar</h3>
+              <div style="display:flex;align-items:center;gap:0.5rem">
+                <label style="font-size:0.75rem;color:var(--gris)">Año:</label>
+                <select id="anioSelector" onchange="renderMeses()"
+                  style="background:var(--negro);border:1px solid var(--negro-borde);border-radius:6px;padding:0.3rem 0.6rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.8rem">
+                </select>
+              </div>
+            </div>
+            <div class="meses-grid" id="mesesGrid"></div>
+          </div>
+
+          <!-- Datos del pago -->
+          <div class="form-grid" style="margin-top:1.5rem">
+            <div class="form-group">
+              <label>Monto por cuota ($)</label>
+              <input type="number" id="pagoMonto" placeholder="Ej: 5000" min="0" />
+            </div>
+            <div class="form-group">
+              <label>Fecha de pago</label>
+              <input type="date" id="pagoFecha" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Observaciones (opcional)</label>
+              <input type="text" id="pagoNotas" placeholder="Ej: Pagó en efectivo en cancha" />
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:1rem;margin-top:1rem;flex-wrap:wrap">
+            <div id="resumenPago" style="font-size:0.85rem;color:var(--gris)">Seleccioná al menos un mes para continuar.</div>
+            <button class="btn btn-primary" style="margin-left:auto" onclick="confirmarPago()" id="btnConfirmarPago" disabled>
+              Confirmar pago
+            </button>
+          </div>
+        </div>
+
+        <div id="sinSocioPago" style="display:none">
+          <div class="empty-state" style="padding:1.5rem 0">
+            <div class="icon">🔍</div>
+            <p>No se encontró ningún socio con ese DNI.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════ -->
+    <!-- TAB: HISTORIAL                    -->
+    <!-- ══════════════════════════════════ -->
+    <div class="tab-content" id="tab-historial">
+      <div class="card">
+        <div class="card-header">
+          <h2>Historial de pagos</h2>
+          <div style="display:flex;gap:0.5rem">
+            <input type="text" id="filtroHistorial" placeholder="Buscar socio o DNI..."
+              oninput="filtrarHistorial()"
+              style="background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.4rem 0.75rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.8rem;width:200px" />
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Socio</th>
+                <th>DNI</th>
+                <th>Mes</th>
+                <th>Monto</th>
+                <th>Fecha de pago</th>
+                <th>Notas</th>
+              </tr>
+            </thead>
+            <tbody id="tablaHistorial">
+              <tr><td colspan="6"><div class="empty-state"><div class="icon">💳</div><p>No hay pagos registrados aún.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════ -->
+    <!-- TAB: DEUDORES                     -->
+    <!-- ══════════════════════════════════ -->
+    <div class="tab-content" id="tab-deudores">
+      <div class="card">
+        <div class="card-header">
+          <h2>Socios con deuda</h2>
+          <span id="contadorDeudores" style="font-size:0.8rem;color:var(--gris)"></span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre y apellido</th>
+                <th>DNI</th>
+                <th>Teléfono</th>
+                <th>Cuotas pagas</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tablaDeudores">
+              <tr><td colspan="5"><div class="empty-state"><div class="icon">✅</div><p>No hay socios con deuda.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL ÉXITO PAGO -->
+  <div class="modal-overlay" id="modalPagoExito">
+    <div class="modal" style="max-width:400px;text-align:center">
+      <div style="font-size:3rem;margin-bottom:1rem">💰</div>
+      <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:1px;color:var(--amarillo);margin-bottom:0.5rem">PAGO REGISTRADO</h3>
+      <p style="color:var(--gris-claro);font-size:0.9rem;margin-bottom:0.25rem" id="exitoPagoNombre"></p>
+      <p style="color:var(--amarillo);font-size:1.1rem;font-weight:700;margin-bottom:1.75rem" id="exitoPagoMonto"></p>
+      <div style="display:flex;gap:0.75rem;justify-content:center">
+        <button class="btn btn-secondary" onclick="cerrarModalPago()">Cerrar</button>
+        <button class="btn btn-primary" onclick="irADeudores()">Ver deudores</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const API   = '/api';
+    const token = sessionStorage.getItem('refc_token');
+    const session = JSON.parse(sessionStorage.getItem('refc_user') || 'null');
+    if (!session || !token) window.location.href = 'login.html';
+    document.getElementById('navUsuario').textContent = session?.usuario || '';
+
+    function logout() {
+      sessionStorage.removeItem('refc_user');
+      sessionStorage.removeItem('refc_token');
+      window.location.href = 'login.html';
+    }
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    }
+
+    // ─── TABS ───
+    function switchTab(nombre) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + nombre).classList.add('active');
+
+      if (nombre === 'historial') cargarHistorial();
+      if (nombre === 'deudores')  cargarDeudores();
+    }
+
+    // ─── AÑOS ───
+    const anioActual = new Date().getFullYear();
+    const anioSelect = document.getElementById('anioSelector');
+    for (let a = anioActual; a >= anioActual - 2; a--) {
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = a;
+      anioSelect.appendChild(opt);
+    }
+
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    let mesesSeleccionados = new Set();
+    let cuotasPagadasSocio = [];
+    let socioActual = null;
+
+    // ─── BUSCAR SOCIO PARA PAGO ───
+    async function buscarSocioPago() {
+      const dni = document.getElementById('buscarDNIPago').value.trim();
+      if (!dni) { showToast('Ingresá un DNI.', 'error'); return; }
+
+      document.getElementById('resultadoPagoBusqueda').style.display = 'none';
+      document.getElementById('sinSocioPago').style.display = 'none';
+
+      try {
+        const res = await fetch(`${API}/socios/dni/${dni}`, { headers: authHeaders() });
+        if (res.status === 404) {
+          document.getElementById('sinSocioPago').style.display = 'block';
+          socioActual = null;
+          return;
+        }
+
+        socioActual = await res.json();
+        cuotasPagadasSocio = socioActual.cuotas || [];
+        mesesSeleccionados.clear();
+
+        document.getElementById('pagoSocioNombre').textContent = `${socioActual.nombre} ${socioActual.apellido}`;
+        document.getElementById('pagoSocioInfo').textContent   = `DNI: ${socioActual.dni} — Tel: ${socioActual.telefono} — Cuotas pagas: ${socioActual.cuotas_pagas}`;
+
+        const estadoBadge = document.getElementById('pagoSocioEstado');
+        estadoBadge.textContent  = socioActual.estado === 'al-dia' ? 'Al día' : 'Con deuda';
+        estadoBadge.className    = `badge ${socioActual.estado === 'al-dia' ? 'badge-verde' : 'badge-naranja'}`;
+
+        document.getElementById('pagoFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('resultadoPagoBusqueda').style.display = 'block';
+        renderMeses();
+
+      } catch {
+        showToast('Error al conectar con el servidor.', 'error');
+      }
+    }
+
+    function renderMeses() {
+      const anio = parseInt(document.getElementById('anioSelector').value);
+      const grid = document.getElementById('mesesGrid');
+      mesesSeleccionados.clear();
+      actualizarResumen();
+
+      grid.innerHTML = MESES.map((mes, i) => {
+        const mesStr = `${anio}-${String(i+1).padStart(2,'0')}`;
+        const yaPago = cuotasPagadasSocio.some(c => c.mes === mesStr && c.pagado === 1);
+        return `
+          <button
+            class="mes-btn ${yaPago ? 'pagado' : ''}"
+            data-mes="${mesStr}"
+            onclick="${yaPago ? '' : 'toggleMes(this)'}"
+            title="${yaPago ? 'Ya pagado' : ''}"
+          >
+            ${mes.substring(0,3)}<br>
+            <small style="font-size:0.65rem;color:inherit;opacity:0.7">${anio}</small>
+            ${yaPago ? '<br><small>✓</small>' : ''}
+          </button>`;
+      }).join('');
+    }
+
+    function toggleMes(btn) {
+      const mes = btn.dataset.mes;
+      if (mesesSeleccionados.has(mes)) {
+        mesesSeleccionados.delete(mes);
+        btn.classList.remove('seleccionado');
+      } else {
+        mesesSeleccionados.add(mes);
+        btn.classList.add('seleccionado');
+      }
+      actualizarResumen();
+    }
+
+    function actualizarResumen() {
+      const cantidad = mesesSeleccionados.size;
+      const monto    = parseFloat(document.getElementById('pagoMonto').value) || 0;
+      const total    = cantidad * monto;
+      const btn      = document.getElementById('btnConfirmarPago');
+      const resumen  = document.getElementById('resumenPago');
+
+      if (cantidad === 0) {
+        resumen.textContent = 'Seleccioná al menos un mes para continuar.';
+        resumen.style.color = 'var(--gris)';
+        btn.disabled = true;
+      } else {
+        resumen.innerHTML = `<strong style="color:var(--blanco)">${cantidad} cuota${cantidad>1?'s':''}</strong> seleccionada${cantidad>1?'s':''} — Total: <strong style="color:var(--amarillo)">$${total.toLocaleString('es-AR')}</strong>`;
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('pagoMonto').addEventListener('input', actualizarResumen);
+
+    // ─── CONFIRMAR PAGO ───
+    async function confirmarPago() {
+      if (!socioActual || mesesSeleccionados.size === 0) return;
+
+      const monto    = parseFloat(document.getElementById('pagoMonto').value) || 0;
+      const fecha    = document.getElementById('pagoFecha').value;
+      const notas    = document.getElementById('pagoNotas').value.trim();
+      const btn      = document.getElementById('btnConfirmarPago');
+
+      btn.textContent = 'Guardando...';
+      btn.disabled = true;
+
+      try {
+        for (const mes of mesesSeleccionados) {
+          await fetch(`${API}/cuotas`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({
+              socio_id:   socioActual.id,
+              mes,
+              monto,
+              pagado:     1,
+              fecha_pago: fecha || new Date().toISOString().split('T')[0],
+              notas:      notas || null
+            })
+          });
+        }
+
+        const total = mesesSeleccionados.size * monto;
+        document.getElementById('exitoPagoNombre').textContent = `${socioActual.nombre} ${socioActual.apellido}`;
+        document.getElementById('exitoPagoMonto').textContent  = `$${total.toLocaleString('es-AR')} — ${mesesSeleccionados.size} cuota${mesesSeleccionados.size>1?'s':''}`;
+        document.getElementById('modalPagoExito').classList.add('open');
+
+        // Refrescar
+        await buscarSocioPago();
+
+      } catch {
+        showToast('Error al registrar el pago.', 'error');
+      } finally {
+        btn.textContent = 'Confirmar pago';
+        btn.disabled = false;
+      }
+    }
+
+    function cerrarModalPago() {
+      document.getElementById('modalPagoExito').classList.remove('open');
+    }
+
+    function irADeudores() {
+      cerrarModalPago();
+      document.querySelectorAll('.tab')[2].click();
+    }
+
+    // ─── HISTORIAL ───
+    let historialData = [];
+
+    async function cargarHistorial() {
+      try {
+        const resSocios = await fetch(`${API}/socios`, { headers: authHeaders() });
+        const socios    = await resSocios.json();
+
+        const pagos = [];
+        for (const s of socios) {
+          const resDet = await fetch(`${API}/socios/${s.id}`, { headers: authHeaders() });
+          const det    = await resDet.json();
+          for (const c of (det.cuotas || [])) {
+            if (c.pagado) {
+              pagos.push({ ...c, socioNombre: `${s.nombre} ${s.apellido}`, socioDni: s.dni });
+            }
+          }
+        }
+
+        historialData = pagos.sort((a, b) => (b.fecha_pago || '').localeCompare(a.fecha_pago || ''));
+        renderHistorial(historialData);
+      } catch {
+        showToast('Error al cargar historial.', 'error');
+      }
+    }
+
+    function renderHistorial(lista) {
+      const tbody = document.getElementById('tablaHistorial');
+      if (lista.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">💳</div><p>No hay pagos registrados aún.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = lista.map(p => {
+        const [anio, mes] = p.mes.split('-');
+        const nombreMes   = MESES[parseInt(mes)-1];
+        return `
+          <tr>
+            <td style="color:var(--blanco);font-weight:500">${p.socioNombre}</td>
+            <td>${p.socioDni}</td>
+            <td>${nombreMes} ${anio}</td>
+            <td style="color:var(--amarillo);font-weight:600">$${Number(p.monto).toLocaleString('es-AR')}</td>
+            <td>${p.fecha_pago || '—'}</td>
+            <td style="color:var(--gris)">${p.notas || '—'}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    function filtrarHistorial() {
+      const texto = document.getElementById('filtroHistorial').value.toLowerCase();
+      const filtrado = historialData.filter(p =>
+        p.socioNombre.toLowerCase().includes(texto) || p.socioDni.includes(texto)
+      );
+      renderHistorial(filtrado);
+    }
+
+    // ─── DEUDORES ───
+    async function cargarDeudores() {
+      try {
+        const res    = await fetch(`${API}/socios?estado=deuda`, { headers: authHeaders() });
+        const socios = await res.json();
+        const tbody  = document.getElementById('tablaDeudores');
+        document.getElementById('contadorDeudores').textContent = `${socios.length} socio${socios.length !== 1 ? 's' : ''}`;
+
+        if (socios.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">✅</div><p>No hay socios con deuda. ¡Todo al día!</p></div></td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = socios.map(s => `
+          <tr>
+            <td style="color:var(--blanco);font-weight:500">${s.nombre} ${s.apellido}</td>
+            <td>${s.dni}</td>
+            <td>${s.telefono}</td>
+            <td style="color:var(--amarillo);font-weight:600">${s.cuotas_pagas}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" onclick="irARegistrarPago('${s.dni}')">
+                Registrar pago
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch {
+        showToast('Error al cargar deudores.', 'error');
+      }
+    }
+
+    function irARegistrarPago(dni) {
+      document.querySelectorAll('.tab')[0].click();
+      document.getElementById('buscarDNIPago').value = dni;
+      buscarSocioPago();
+    }
+
+    // ─── TOAST ───
+    function showToast(msg, tipo = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${tipo}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }
+
+    document.getElementById('modalPagoExito').addEventListener('click', e => {
+      if (e.target === e.currentTarget) cerrarModalPago();
+    });
+  </script>
+
+</body>
+</html>

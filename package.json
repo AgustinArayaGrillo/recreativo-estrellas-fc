@@ -1,0 +1,12 @@
+{
+  "name": "recreativo-estrellas-fc",
+  "version": "1.0.0",
+  "description": "Sistema de gestión de socios - Recreativo Estrellas F.C.",
+  "main": "backend/index.js",
+  "scripts": {
+    "start": "node backend/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

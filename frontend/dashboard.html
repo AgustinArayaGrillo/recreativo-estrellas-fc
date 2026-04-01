@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Recreativo Estrellas F.C.</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">
+      <img src="../assets/escudo/escudo.png" alt="REFC" />
+      <span>Recreativo <em>Estrellas</em> F.C.</span>
+    </a>
+
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="active">Inicio</a></li>
+      <li><a href="socios.html">Socios</a></li>
+      <li><a href="pagos.html">Pagos</a></li>
+    </ul>
+
+    <div class="navbar-user">
+      <span id="navUsuario">—</span>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- CONTENIDO -->
+  <div class="main-content">
+
+    <div class="page-header">
+      <h1>Panel <span>Principal</span></h1>
+      <p>Gestión de socios — Recreativo Estrellas F.C., Jovita</p>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon amarillo">⭐</div>
+        <div class="stat-info">
+          <p>Total socios</p>
+          <h3 id="statTotal">—</h3>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon verde">✅</div>
+        <div class="stat-info">
+          <p>Al día</p>
+          <h3 id="statAlDia">—</h3>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon rojo">⚠️</div>
+        <div class="stat-info">
+          <p>Con deuda</p>
+          <h3 id="statDeuda">—</h3>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon gris">💰</div>
+        <div class="stat-info">
+          <p>Recaudado este mes</p>
+          <h3 id="statRecaudado">—</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUSCADOR DNI -->
+    <div class="search-section">
+      <div class="search-box">
+        <h2>🔍 CONSULTA RÁPIDA POR DNI</h2>
+        <div class="search-input-group">
+          <input
+            type="number"
+            id="inputDNI"
+            placeholder="Ingresá el DNI del socio..."
+            min="1000000"
+            max="99999999"
+            onkeydown="if(event.key==='Enter') buscarSocio()"
+          />
+          <button class="btn btn-primary" onclick="buscarSocio()">BUSCAR</button>
+          <button class="btn btn-secondary" onclick="limpiarBusqueda()">Limpiar</button>
+        </div>
+
+        <!-- Resultado -->
+        <div class="resultado-socio" id="resultadoSocio">
+          <div class="resultado-header" id="resultadoHeader"></div>
+          <div class="resultado-body" id="resultadoBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÚLTIMOS SOCIOS REGISTRADOS -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Últimos socios registrados</h2>
+        <a href="socios.html" class="btn btn-secondary btn-sm">Ver todos</a>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nombre y apellido</th>
+              <th>DNI</th>
+              <th>Teléfono</th>
+              <th>Estado</th>
+              <th>Cuotas pagas</th>
+            </tr>
+          </thead>
+          <tbody id="tablaUltimos">
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <div class="icon">📋</div>
+                  <p>No hay socios registrados aún.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const API = '/api';
+
+    // ─── SESIÓN ───
+    const session = JSON.parse(sessionStorage.getItem('refc_user') || 'null');
+    const token   = sessionStorage.getItem('refc_token');
+    if (!session || !token) window.location.href = 'login.html';
+
+    document.getElementById('navUsuario').textContent = session?.usuario || '';
+
+    function logout() {
+      sessionStorage.removeItem('refc_user');
+      sessionStorage.removeItem('refc_token');
+      window.location.href = 'login.html';
+    }
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    }
+
+    // ─── STATS ───
+    async function cargarStats() {
+      try {
+        const res  = await fetch(`${API}/stats`, { headers: authHeaders() });
+        const data = await res.json();
+        document.getElementById('statTotal').textContent     = data.total;
+        document.getElementById('statAlDia').textContent     = data.alDia;
+        document.getElementById('statDeuda').textContent     = data.deuda;
+        document.getElementById('statRecaudado').textContent = '$' + Number(data.recaudadoMes).toLocaleString('es-AR');
+      } catch {
+        showToast('Error al cargar estadísticas.', 'error');
+      }
+    }
+
+    // ─── TABLA ÚLTIMOS ───
+    async function cargarTabla() {
+      const tbody = document.getElementById('tablaUltimos');
+      try {
+        const res    = await fetch(`${API}/socios`, { headers: authHeaders() });
+        const socios = await res.json();
+        const ultimos = socios.slice(0, 5);
+
+        if (ultimos.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">📋</div><p>No hay socios registrados aún.</p></div></td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = ultimos.map(s => `
+          <tr>
+            <td style="color:var(--gris)">${s.id}</td>
+            <td style="color:var(--blanco);font-weight:500">${s.nombre} ${s.apellido}</td>
+            <td>${s.dni}</td>
+            <td>${s.telefono}</td>
+            <td>
+              <span class="badge ${s.estado === 'al-dia' ? 'badge-verde' : 'badge-naranja'}">
+                ${s.estado === 'al-dia' ? 'Al día' : 'Con deuda'}
+              </span>
+            </td>
+            <td>${s.cuotas_pagas}</td>
+          </tr>
+        `).join('');
+      } catch {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--gris);text-align:center;padding:1.5rem">Error al cargar socios.</td></tr>`;
+      }
+    }
+
+    // ─── BÚSQUEDA DNI ───
+    async function buscarSocio() {
+      const dni     = document.getElementById('inputDNI').value.trim();
+      const resultado = document.getElementById('resultadoSocio');
+      const header    = document.getElementById('resultadoHeader');
+      const body      = document.getElementById('resultadoBody');
+
+      if (!dni) { showToast('Ingresá un DNI para buscar.', 'error'); return; }
+
+      header.className = 'resultado-header';
+      header.innerHTML = '🔄 &nbsp; Buscando...';
+      resultado.classList.add('visible');
+      body.innerHTML = '';
+
+      try {
+        const res = await fetch(`${API}/socios/dni/${dni}`, { headers: authHeaders() });
+
+        if (res.status === 404) {
+          header.className = 'resultado-header no-socio';
+          header.innerHTML = '❌ &nbsp; DNI no encontrado — No figura como socio';
+          body.innerHTML = `
+            <div class="empty-state" style="padding:1.5rem 0">
+              <p>El DNI <strong>${dni}</strong> no está registrado en el padrón.</p><br>
+              <a href="nuevo-socio.html" class="btn btn-primary btn-sm">+ Registrar como socio</a>
+            </div>`;
+          return;
+        }
+
+        const socio   = await res.json();
+        const esAlDia = socio.estado === 'al-dia';
+
+        header.className = `resultado-header ${esAlDia ? 'al-dia' : 'con-deuda'}`;
+        header.innerHTML = esAlDia
+          ? `✅ &nbsp; SOCIO AL DÍA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`
+          : `⚠️ &nbsp; SOCIO CON DEUDA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`;
+
+        body.innerHTML = `
+          <div class="socio-info-grid">
+            <div class="socio-info-item">
+              <label>Nombre completo</label>
+              <span>${socio.nombre} ${socio.apellido}</span>
+            </div>
+            <div class="socio-info-item">
+              <label>DNI</label>
+              <span>${socio.dni}</span>
+            </div>
+            <div class="socio-info-item">
+              <label>Teléfono</label>
+              <span>${socio.telefono}</span>
+            </div>
+            <div class="socio-info-item">
+              <label>Email</label>
+              <span>${socio.email || '—'}</span>
+            </div>
+            <div class="socio-info-item">
+              <label>Cuotas pagas</label>
+              <span style="color:var(--amarillo);font-weight:700;font-size:1.2rem">${socio.cuotas_pagas}</span>
+            </div>
+            <div class="socio-info-item">
+              <label>Estado</label>
+              <span class="badge ${esAlDia ? 'badge-verde' : 'badge-naranja'}">
+                ${esAlDia ? 'Al día' : 'Con deuda'}
+              </span>
+            </div>
+          </div>`;
+      } catch {
+        header.className = 'resultado-header no-socio';
+        header.innerHTML = '❌ &nbsp; Error al conectar con el servidor';
+        body.innerHTML = '';
+      }
+    }
+
+    function limpiarBusqueda() {
+      document.getElementById('inputDNI').value = '';
+      document.getElementById('resultadoSocio').classList.remove('visible');
+      document.getElementById('inputDNI').focus();
+    }
+
+    // ─── TOAST ───
+    function showToast(msg, tipo = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${tipo}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }
+
+    // ─── INIT ───
+    cargarStats();
+    cargarTabla();
+  </script>
+
+</body>
+</html>
