@@ -186,7 +186,7 @@ app.put('/api/cuotas/:id/pagar', auth, soloAdmin, (req, res) => {
 });
 
 // ─── CATCH-ALL → login ───
-app.get('*', (req, res) => {
+app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 
