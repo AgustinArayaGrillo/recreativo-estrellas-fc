@@ -322,6 +322,43 @@ app.post('/api/mp-webhook', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════
+//  PORTAL SOCIO
+// ═══════════════════════════════════
+app.post('/api/socio-login', async (req, res) => {
+  const { dni } = req.body;
+  if (!dni) return res.status(400).json({ error: 'Ingresá tu DNI' });
+
+  const { rows } = await pool.query('SELECT * FROM socios WHERE dni = $1', [dni.trim()]);
+  const socio = rows[0];
+  if (!socio) return res.status(404).json({ error: 'No encontramos un socio con ese DNI' });
+
+  const cuotas = (await pool.query(
+    'SELECT * FROM cuotas WHERE socio_id = $1 ORDER BY mes DESC', [socio.id]
+  )).rows;
+
+  const token = jwt.sign({ id: socio.id, dni: socio.dni, rol: 'socio' }, SECRET, { expiresIn: '4h' });
+  res.json({ token, socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: socio.estado, fecha_ingreso: socio.fecha_ingreso }, cuotas });
+});
+
+app.get('/api/socio-perfil', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No autorizado' });
+  let payload;
+  try { payload = jwt.verify(token, SECRET); } catch { return res.status(401).json({ error: 'Token inválido' }); }
+  if (payload.rol !== 'socio') return res.status(403).json({ error: 'Acceso denegado' });
+
+  const { rows } = await pool.query('SELECT * FROM socios WHERE id = $1', [payload.id]);
+  const socio = rows[0];
+  if (!socio) return res.status(404).json({ error: 'Socio no encontrado' });
+
+  const cuotas = (await pool.query(
+    'SELECT * FROM cuotas WHERE socio_id = $1 ORDER BY mes DESC', [socio.id]
+  )).rows;
+
+  res.json({ socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: socio.estado, fecha_ingreso: socio.fecha_ingreso }, cuotas });
+});
+
 // ─── CATCH-ALL → login ───
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/login.html'));

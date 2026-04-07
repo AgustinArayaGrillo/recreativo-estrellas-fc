@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mi Cuenta — Recreativo Estrellas F.C.</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      background-color: var(--negro);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .bg-cover {
+      position: fixed; inset: 0;
+      background: url('../assets/fotos/488160418_1471092664186469_7818115757013939030_n.jpg') center/cover no-repeat;
+      filter: blur(4px) brightness(0.18);
+      transform: scale(1.05);
+      z-index: 0;
+    }
+    .bg-gradient {
+      position: fixed; inset: 0;
+      background: linear-gradient(to bottom, rgba(13,13,13,0.6), rgba(13,13,13,0.95));
+      z-index: 1;
+    }
+    .container {
+      position: relative; z-index: 2;
+      width: 100%; max-width: 480px;
+      padding: 1rem;
+    }
+    .club-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .club-header img {
+      width: 80px; height: 80px;
+      object-fit: contain;
+      margin-bottom: 0.75rem;
+      filter: drop-shadow(0 0 20px rgba(245,197,24,0.4));
+    }
+    .club-header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.7rem; letter-spacing: 2px;
+      color: var(--blanco); line-height: 1.1;
+    }
+    .club-header h1 span { color: var(--amarillo); }
+    .club-header p { color: var(--gris); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; }
+    .divider { width: 50px; height: 2px; background: var(--amarillo); margin: 0.8rem auto; border-radius: 2px; }
+
+    /* ── LOGIN ── */
+    .card {
+      background: rgba(26,26,26,0.92);
+      border: 1px solid var(--negro-borde);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; color: var(--blanco); margin-bottom: 0.25rem; }
+    .card p  { font-size: 0.8rem; color: var(--gris); margin-bottom: 1.5rem; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--gris-claro); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; }
+    .input-icon { position: relative; }
+    .input-icon span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 1rem; color: var(--gris); }
+    .input-icon input { width: 100%; background: var(--negro); border: 1.5px solid var(--negro-borde); border-radius: 8px; padding: 0.75rem 1rem 0.75rem 2.5rem; color: var(--blanco); font-family: 'Poppins', sans-serif; font-size: 0.9rem; transition: border-color 0.2s; }
+    .input-icon input:focus { outline: none; border-color: var(--amarillo); }
+    .btn-primary { width: 100%; background: var(--amarillo); color: var(--negro); border: none; border-radius: 8px; padding: 0.85rem; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 2px; cursor: pointer; margin-top: 0.5rem; transition: all 0.2s; }
+    .btn-primary:hover { background: var(--amarillo-hover); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(245,197,24,0.3); }
+    .error-msg { background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.3); color: var(--rojo-error); border-radius: 8px; padding: 0.65rem 1rem; font-size: 0.82rem; margin-top: 1rem; display: none; }
+    .error-msg.visible { display: block; }
+
+    /* ── PERFIL ── */
+    #perfil { display: none; }
+    .perfil-header {
+      display: flex; align-items: center; gap: 1rem;
+      background: rgba(245,197,24,0.07);
+      border: 1px solid rgba(245,197,24,0.2);
+      border-radius: 12px; padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .perfil-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--amarillo); display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 700; color: var(--negro); flex-shrink: 0;
+    }
+    .perfil-info h3 { font-size: 1rem; font-weight: 700; color: var(--blanco); }
+    .perfil-info p  { font-size: 0.78rem; color: var(--gris); margin-top: 0.15rem; }
+    .badge-estado {
+      display: inline-block; padding: 0.2rem 0.65rem;
+      border-radius: 20px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      margin-top: 0.3rem;
+    }
+    .badge-al-dia  { background: rgba(39,174,96,0.15); color: #27ae60; border: 1px solid rgba(39,174,96,0.3); }
+    .badge-deuda   { background: rgba(231,76,60,0.15); color: var(--rojo-error); border: 1px solid rgba(231,76,60,0.3); }
+
+    .section-title { font-size: 0.7rem; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.75rem; margin-top: 1.25rem; }
+
+    .cuota-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.65rem 1rem;
+      border-radius: 8px; margin-bottom: 0.4rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--negro-borde);
+    }
+    .cuota-mes { font-size: 0.88rem; color: var(--blanco); font-weight: 500; }
+    .cuota-monto { font-size: 0.82rem; color: var(--gris); }
+    .cuota-badge { font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 20px; }
+    .pagada   { background: rgba(39,174,96,0.15); color: #27ae60; }
+    .pendiente{ background: rgba(231,76,60,0.15); color: var(--rojo-error); }
+
+    .empty-cuotas { text-align: center; color: var(--gris); font-size: 0.85rem; padding: 1.5rem 0; }
+
+    .btn-salir { width: 100%; margin-top: 1.25rem; background: transparent; color: var(--gris); border: 1px solid var(--negro-borde); border-radius: 8px; padding: 0.65rem; font-family: 'Poppins', sans-serif; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+    .btn-salir:hover { color: var(--blanco); border-color: var(--gris); }
+  </style>
+</head>
+<body>
+
+  <div class="bg-cover"></div>
+  <div class="bg-gradient"></div>
+
+  <div class="container">
+    <div class="club-header">
+      <img src="../assets/escudo/escudo.png" alt="Escudo" />
+      <h1>Recreativo <span>Estrellas</span> F.C.</h1>
+      <p>Jovita, Córdoba</p>
+      <div class="divider"></div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginSection" class="card">
+      <h2>Portal del Socio</h2>
+      <p>Ingresá con tu número de DNI para ver tu estado de cuenta</p>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>DNI</label>
+          <div class="input-icon">
+            <span>🪪</span>
+            <input type="text" id="dniInput" placeholder="Ej: 40123456" inputmode="numeric" required />
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" id="btnLogin">VER MI CUENTA</button>
+        <div class="error-msg" id="errorMsg"></div>
+      </form>
+    </div>
+
+    <!-- PERFIL -->
+    <div id="perfil">
+      <div class="card">
+        <div class="perfil-header">
+          <div class="perfil-avatar" id="avatar"></div>
+          <div class="perfil-info">
+            <h3 id="nombreCompleto"></h3>
+            <p id="dniMostrado"></p>
+            <span class="badge-estado" id="badgeEstado"></span>
+          </div>
+        </div>
+
+        <div class="section-title">Historial de Cuotas</div>
+        <div id="listaCuotas"></div>
+
+        <button class="btn-salir" onclick="cerrarSesion()">Cerrar sesión</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API = '/api';
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const dni = document.getElementById('dniInput').value.trim();
+      const btn = document.getElementById('btnLogin');
+      const err = document.getElementById('errorMsg');
+      btn.textContent = 'BUSCANDO...';
+      btn.disabled = true;
+      err.classList.remove('visible');
+
+      try {
+        const res  = await fetch(`${API}/socio-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        sessionStorage.setItem('socio_token', data.token);
+        mostrarPerfil(data.socio, data.cuotas);
+      } catch (ex) {
+        err.textContent = ex.message;
+        err.classList.add('visible');
+        btn.textContent = 'VER MI CUENTA';
+        btn.disabled = false;
+      }
+    }
+
+    function mostrarPerfil(socio, cuotas) {
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('perfil').style.display = 'block';
+
+      document.getElementById('avatar').textContent = socio.nombre[0] + socio.apellido[0];
+      document.getElementById('nombreCompleto').textContent = `${socio.nombre} ${socio.apellido}`;
+      document.getElementById('dniMostrado').textContent = `DNI ${socio.dni} · ${socio.categoria}`;
+
+      const badge = document.getElementById('badgeEstado');
+      if (socio.estado === 'al-dia') {
+        badge.textContent = '✓ Al día';
+        badge.className = 'badge-estado badge-al-dia';
+      } else {
+        badge.textContent = '⚠ Con deuda';
+        badge.className = 'badge-estado badge-deuda';
+      }
+
+      const lista = document.getElementById('listaCuotas');
+      if (!cuotas.length) {
+        lista.innerHTML = '<div class="empty-cuotas">Sin cuotas registradas aún.</div>';
+        return;
+      }
+      lista.innerHTML = cuotas.map(c => {
+        const mes = c.mes || '—';
+        const monto = c.monto ? `$${Number(c.monto).toLocaleString('es-AR')}` : '';
+        const estado = c.pagado ? '<span class="cuota-badge pagada">Pagada</span>' : '<span class="cuota-badge pendiente">Pendiente</span>';
+        return `<div class="cuota-row">
+          <div>
+            <div class="cuota-mes">${mes}</div>
+            ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
+          </div>
+          ${estado}
+        </div>`;
+      }).join('');
+    }
+
+    function cerrarSesion() {
+      sessionStorage.removeItem('socio_token');
+      document.getElementById('perfil').style.display = 'none';
+      document.getElementById('loginSection').style.display = 'block';
+      document.getElementById('dniInput').value = '';
+      document.getElementById('btnLogin').textContent = 'VER MI CUENTA';
+      document.getElementById('btnLogin').disabled = false;
+    }
+
+    // Auto-login si ya tiene token
+    const token = sessionStorage.getItem('socio_token');
+    if (token) {
+      fetch(`${API}/socio-perfil`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => { if (d.socio) mostrarPerfil(d.socio, d.cuotas); })
+        .catch(() => {});
+    }
+  </script>
+
+</body>
+</html>
