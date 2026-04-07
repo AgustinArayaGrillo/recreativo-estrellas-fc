@@ -232,9 +232,13 @@
 
         <div class="form-group">
           <label>Contraseña</label>
-          <div class="input-icon">
+          <div class="input-icon" style="position:relative;">
             <span>🔒</span>
-            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required />
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required style="padding-right:2.75rem;" />
+            <span id="togglePassword" onclick="togglePass()" style="
+              position:absolute; left:auto; right:12px; top:50%; transform:translateY(-50%);
+              cursor:pointer; font-size:1rem; user-select:none;
+            ">👁️</span>
           </div>
         </div>
 
@@ -250,10 +254,42 @@
       Sistema de Gestión de Socios &mdash; <strong>REFC</strong>
     </div>
 
+    <div style="text-align:center; margin-top:1.25rem;">
+      <a href="hacerse-socio.html" style="
+        display: inline-block;
+        background: transparent;
+        color: var(--amarillo);
+        border: 2px solid var(--amarillo);
+        border-radius: 8px;
+        padding: 0.75rem 1.75rem;
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.05rem;
+        letter-spacing: 2px;
+        text-decoration: none;
+        transition: all 0.2s;
+        box-shadow: 0 0 12px rgba(245,197,24,0.15);
+      "
+      onmouseover="this.style.background='var(--amarillo)';this.style.color='var(--negro)';this.style.boxShadow='0 4px 16px rgba(245,197,24,0.35)'"
+      onmouseout="this.style.background='transparent';this.style.color='var(--amarillo)';this.style.boxShadow='0 0 12px rgba(245,197,24,0.15)'"
+      >⚽ QUIERO SER SOCIO</a>
+    </div>
+
   </div>
 
   <script>
     const API = '/api';
+
+    function togglePass() {
+      const input = document.getElementById('password');
+      const icon  = document.getElementById('togglePassword');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        icon.textContent = '👁️';
+      }
+    }
 
     async function handleLogin(e) {
       e.preventDefault();

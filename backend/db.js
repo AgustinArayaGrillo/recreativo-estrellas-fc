@@ -45,6 +45,18 @@ db.exec(`
     notas      TEXT,
     creado_en  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
+
+  CREATE TABLE IF NOT EXISTS solicitudes (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre             TEXT NOT NULL,
+    apellido           TEXT NOT NULL,
+    dni                TEXT NOT NULL,
+    telefono           TEXT NOT NULL,
+    mp_preference_id   TEXT,
+    mp_payment_id      TEXT,
+    estado             TEXT NOT NULL DEFAULT 'pendiente',
+    creado_en          TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
 `);
 
 // ─── SEED: usuarios por defecto ───

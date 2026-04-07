@@ -4,6 +4,15 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const path    = require('path');
 const db      = require('./db');
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+
+const BASE_URL = process.env.BASE_URL || 'https://recreativo-estrellas-fc-production.up.railway.app';
+
+function getMPClient() {
+  const token = process.env.MP_ACCESS_TOKEN;
+  if (!token) return null;
+  return new MercadoPagoConfig({ accessToken: token });
+}
 
 const app    = express();
 const PORT   = process.env.PORT || 3001;
@@ -183,6 +192,112 @@ app.put('/api/cuotas/:id/pagar', auth, soloAdmin, (req, res) => {
 
   db.prepare("UPDATE socios SET estado='al-dia' WHERE id=?").run(cuota.socio_id);
   res.json({ mensaje: 'Cuota registrada como pagada' });
+});
+
+// ═══════════════════════════════════
+//  HACERSE SOCIO — MERCADO PAGO
+// ═══════════════════════════════════
+
+// Crear solicitud y preferencia de pago
+app.post('/api/solicitudes', async (req, res) => {
+  const { nombre, apellido, dni, telefono } = req.body;
+  if (!nombre || !apellido || !dni || !telefono) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+
+  // Verificar que no exista ya un socio con ese DNI
+  const existeSocio = db.prepare('SELECT id FROM socios WHERE dni = ?').get(dni);
+  if (existeSocio) return res.status(409).json({ error: 'Ya existe un socio registrado con ese DNI' });
+
+  // Verificar que no haya una solicitud pendiente con ese DNI
+  const existeSolicitud = db.prepare("SELECT id FROM solicitudes WHERE dni = ? AND estado = 'pendiente'").get(dni);
+  if (existeSolicitud) return res.status(409).json({ error: 'Ya existe una solicitud pendiente con ese DNI' });
+
+  // Guardar solicitud
+  const result = db.prepare(`
+    INSERT INTO solicitudes (nombre, apellido, dni, telefono)
+    VALUES (?, ?, ?, ?)
+  `).run(nombre, apellido, dni, telefono);
+  const solicitudId = result.lastInsertRowid;
+
+  const mpClient = getMPClient();
+  if (!mpClient) {
+    // MP no configurado aún — devolver URL de pendiente
+    return res.json({ init_point: `${BASE_URL}/pago-pendiente.html`, mp_configurado: false });
+  }
+
+  try {
+    const preference = new Preference(mpClient);
+    const pref = await preference.create({
+      body: {
+        items: [{
+          title: 'Cuota de ingreso - Recreativo Estrellas F.C.',
+          quantity: 1,
+          unit_price: 10000,
+          currency_id: 'ARS'
+        }],
+        payer: { name: nombre, surname: apellido },
+        external_reference: String(solicitudId),
+        back_urls: {
+          success: `${BASE_URL}/pago-exitoso.html`,
+          failure: `${BASE_URL}/pago-fallido.html`,
+          pending: `${BASE_URL}/pago-pendiente.html`
+        },
+        auto_return: 'approved',
+        notification_url: `${BASE_URL}/api/mp-webhook`
+      }
+    });
+
+    db.prepare('UPDATE solicitudes SET mp_preference_id = ? WHERE id = ?').run(pref.id, solicitudId);
+    res.json({ init_point: pref.init_point });
+  } catch (err) {
+    console.error('Error MP:', err);
+    res.status(500).json({ error: 'Error al crear preferencia de pago. Intentá de nuevo.' });
+  }
+});
+
+// Webhook de Mercado Pago
+app.post('/api/mp-webhook', async (req, res) => {
+  res.sendStatus(200); // MP requiere respuesta 200 inmediata
+
+  const { type, data } = req.body;
+  if (type !== 'payment' || !data?.id) return;
+
+  const mpClient = getMPClient();
+  if (!mpClient) return;
+
+  try {
+    const paymentClient = new Payment(mpClient);
+    const payment = await paymentClient.get({ id: data.id });
+
+    if (payment.status !== 'approved') return;
+
+    const solicitudId = payment.external_reference;
+    const solicitud = db.prepare('SELECT * FROM solicitudes WHERE id = ?').get(solicitudId);
+    if (!solicitud || solicitud.estado === 'aprobado') return;
+
+    // Crear socio
+    const socioResult = db.prepare(`
+      INSERT INTO socios (nombre, apellido, dni, telefono, categoria, estado)
+      VALUES (?, ?, ?, ?, 'general', 'al-dia')
+    `).run(solicitud.nombre, solicitud.apellido, solicitud.dni, solicitud.telefono);
+
+    // Registrar cuota pagada
+    const now = new Date();
+    const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    db.prepare(`
+      INSERT INTO cuotas (socio_id, mes, monto, pagado, fecha_pago, comprobante, notas)
+      VALUES (?, ?, 10000, 1, ?, ?, 'Pago via Mercado Pago — cuota de ingreso')
+    `).run(socioResult.lastInsertRowid, mes, now.toISOString().split('T')[0], String(payment.id));
+
+    // Marcar solicitud como aprobada
+    db.prepare("UPDATE solicitudes SET estado = 'aprobado', mp_payment_id = ? WHERE id = ?")
+      .run(String(payment.id), solicitudId);
+
+    console.log(`✅ Nuevo socio registrado: ${solicitud.nombre} ${solicitud.apellido} (DNI ${solicitud.dni})`);
+  } catch (err) {
+    console.error('Error procesando webhook MP:', err);
+  }
 });
 
 // ─── CATCH-ALL → login ───
