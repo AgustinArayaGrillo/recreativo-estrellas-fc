@@ -218,92 +218,81 @@
     </div>
 
     <div class="login-card">
-      <h2>Acceso al sistema</h2>
-      <p>Ingresá con tus credenciales de administrador</p>
 
-      <form id="loginForm" onsubmit="handleLogin(event)">
-        <div class="form-group">
-          <label>Usuario</label>
-          <div class="input-icon">
-            <span>👤</span>
-            <input type="text" id="usuario" placeholder="Ingresá tu usuario" autocomplete="username" required />
+      <!-- Pestañas -->
+      <div style="display:flex; gap:0; margin-bottom:1.5rem; border-bottom:1px solid var(--negro-borde);">
+        <button id="tabAdmin" onclick="switchTab('admin')" style="
+          flex:1; background:none; border:none; border-bottom:2px solid var(--amarillo);
+          color:var(--blanco); font-family:'Bebas Neue',sans-serif; font-size:0.95rem;
+          letter-spacing:1.5px; padding:0.6rem 0; cursor:pointer; transition:all 0.2s;
+        ">🔐 ADMINISTRADOR</button>
+        <button id="tabSocio" onclick="switchTab('socio')" style="
+          flex:1; background:none; border:none; border-bottom:2px solid transparent;
+          color:var(--gris); font-family:'Bebas Neue',sans-serif; font-size:0.95rem;
+          letter-spacing:1.5px; padding:0.6rem 0; cursor:pointer; transition:all 0.2s;
+        ">🪪 YA SOY SOCIO</button>
+      </div>
+
+      <!-- Panel Admin -->
+      <div id="panelAdmin">
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label>Usuario</label>
+            <div class="input-icon">
+              <span>👤</span>
+              <input type="text" id="usuario" placeholder="Ingresá tu usuario" autocomplete="username" required />
+            </div>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label>Contraseña</label>
-          <div class="input-icon" style="position:relative;">
-            <span>🔒</span>
-            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required style="padding-right:2.75rem;" />
-            <span id="togglePassword" onclick="togglePass()" style="
-              position:absolute; left:auto; right:12px; top:50%; transform:translateY(-50%);
-              cursor:pointer; font-size:1rem; user-select:none;
-            ">👁️</span>
+          <div class="form-group">
+            <label>Contraseña</label>
+            <div class="input-icon" style="position:relative;">
+              <span>🔒</span>
+              <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required style="padding-right:2.75rem;" />
+              <span id="togglePassword" onclick="togglePass()" style="position:absolute;left:auto;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:1rem;user-select:none;">👁️</span>
+            </div>
           </div>
-        </div>
+          <button type="submit" class="btn-login" id="btnLogin">INGRESAR</button>
+          <div class="login-error" id="loginError">Usuario o contraseña incorrectos.</div>
+        </form>
+      </div>
 
-        <button type="submit" class="btn-login" id="btnLogin">INGRESAR</button>
-
-        <div class="login-error" id="loginError">
-          Usuario o contraseña incorrectos.
-        </div>
-      </form>
-    </div>
-
-    <div class="footer-login">
-      Sistema de Gestión de Socios &mdash; <strong>REFC</strong>
-    </div>
-
-    <!-- Botones acceso socio -->
-    <div style="display:flex; gap:0.75rem; margin-top:1.25rem;">
-      <a href="hacerse-socio.html" style="
-        flex:1; display:inline-block; text-align:center;
-        background: transparent; color: var(--amarillo);
-        border: 2px solid var(--amarillo); border-radius: 8px;
-        padding: 0.75rem 0.5rem;
-        font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem;
-        letter-spacing: 1.5px; text-decoration: none; transition: all 0.2s;
-      "
-      onmouseover="this.style.background='var(--amarillo)';this.style.color='var(--negro)'"
-      onmouseout="this.style.background='transparent';this.style.color='var(--amarillo)'"
-      >⚽ QUIERO SER SOCIO</a>
-
-      <button onclick="toggleSocioPanel()" style="
-        flex:1; background: transparent; color: var(--blanco);
-        border: 2px solid var(--negro-borde); border-radius: 8px;
-        padding: 0.75rem 0.5rem;
-        font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem;
-        letter-spacing: 1.5px; cursor: pointer; transition: all 0.2s;
-      "
-      onmouseover="this.style.borderColor='var(--blanco)'"
-      onmouseout="this.style.borderColor='var(--negro-borde)'"
-      >🪪 YA SOY SOCIO</button>
-    </div>
-
-    <!-- Panel socio -->
-    <div id="socioPanel" style="display:none; margin-top:0.75rem;">
-      <div class="login-card">
-        <h2>Mi estado de cuenta</h2>
-        <p>Ingresá tu DNI para ver tus cuotas</p>
-        <form onsubmit="buscarSocio(event)">
+      <!-- Panel Socio -->
+      <div id="panelSocio" style="display:none;">
+        <form onsubmit="buscarSocio(event)" autocomplete="off">
           <div class="form-group">
             <label>DNI</label>
             <div class="input-icon">
               <span>🪪</span>
-              <input type="text" id="dniSocio" placeholder="Ej: 40123456" inputmode="numeric" required />
+              <input type="text" id="dniSocio" placeholder="Ej: 40123456" inputmode="numeric" autocomplete="off" required />
             </div>
           </div>
           <button type="submit" class="btn-login" id="btnSocio">VER MI CUENTA</button>
           <div class="login-error" id="socioError"></div>
         </form>
-
-        <!-- Resultado -->
         <div id="socioResultado" style="display:none; margin-top:1.25rem;">
-          <div id="socioHeader" style="display:flex; align-items:center; gap:1rem; background:rgba(245,197,24,0.07); border:1px solid rgba(245,197,24,0.2); border-radius:12px; padding:1rem; margin-bottom:1rem;"></div>
-          <div style="font-size:0.7rem; font-weight:600; color:var(--gris); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.6rem;">Cuotas</div>
+          <div id="socioHeader" style="display:flex;align-items:center;gap:1rem;background:rgba(245,197,24,0.07);border:1px solid rgba(245,197,24,0.2);border-radius:12px;padding:1rem;margin-bottom:1rem;"></div>
+          <div style="font-size:0.7rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem;">Cuotas</div>
           <div id="socioCuotas"></div>
         </div>
       </div>
+
+    </div>
+
+    <!-- Quiero ser socio -->
+    <div style="text-align:center; margin-top:1.25rem;">
+      <a href="hacerse-socio.html" style="
+        display:inline-block; background:transparent; color:var(--amarillo);
+        border:2px solid var(--amarillo); border-radius:8px;
+        padding:0.75rem 1.75rem; font-family:'Bebas Neue',sans-serif;
+        font-size:1.05rem; letter-spacing:2px; text-decoration:none; transition:all 0.2s;
+      "
+      onmouseover="this.style.background='var(--amarillo)';this.style.color='var(--negro)'"
+      onmouseout="this.style.background='transparent';this.style.color='var(--amarillo)'"
+      >⚽ QUIERO SER SOCIO</a>
+    </div>
+
+    <div class="footer-login" style="margin-top:1rem;">
+      Sistema de Gestión de Socios &mdash; <strong>REFC</strong>
     </div>
 
   </div>
@@ -365,10 +354,15 @@
       window.location.href = 'dashboard.html';
     }
 
-    function toggleSocioPanel() {
-      const panel = document.getElementById('socioPanel');
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-      if (panel.style.display === 'block') document.getElementById('dniSocio').focus();
+    function switchTab(tab) {
+      const isAdmin = tab === 'admin';
+      document.getElementById('panelAdmin').style.display = isAdmin ? 'block' : 'none';
+      document.getElementById('panelSocio').style.display = isAdmin ? 'none' : 'block';
+      document.getElementById('tabAdmin').style.borderBottomColor = isAdmin ? 'var(--amarillo)' : 'transparent';
+      document.getElementById('tabAdmin').style.color = isAdmin ? 'var(--blanco)' : 'var(--gris)';
+      document.getElementById('tabSocio').style.borderBottomColor = isAdmin ? 'transparent' : 'var(--amarillo)';
+      document.getElementById('tabSocio').style.color = isAdmin ? 'var(--gris)' : 'var(--blanco)';
+      if (!isAdmin) document.getElementById('dniSocio').focus();
     }
 
     async function buscarSocio(e) {
