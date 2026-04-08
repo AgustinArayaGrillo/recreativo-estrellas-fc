@@ -157,7 +157,7 @@ app.post('/api/socios', auth, soloAdmin, async (req, res) => {
     nombre, apellido, dni, telefono,
     email || null, direccion || null, fecha_nac || null,
     fecha_ingreso || new Date().toISOString().split('T')[0],
-    categoria || 'general', estado || 'al-dia', observaciones || null
+    categoria || 'general', estado || 'deuda', observaciones || null
   ]);
 
   res.status(201).json({ id: result.rows[0].id, mensaje: 'Socio registrado' });
@@ -440,8 +440,11 @@ app.post('/api/socio-login', async (req, res) => {
     'SELECT * FROM cuotas WHERE socio_id = $1 ORDER BY mes DESC', [socio.id]
   )).rows;
 
+  const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const estadoReal = cuotas.some(c => c.mes && c.mes.startsWith(mesActual) && c.pagado) ? 'al-dia' : 'deuda';
+
   const token = jwt.sign({ id: socio.id, dni: socio.dni, rol: 'socio' }, SECRET, { expiresIn: '4h' });
-  res.json({ token, socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: socio.estado, fecha_ingreso: socio.fecha_ingreso }, cuotas });
+  res.json({ token, socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: estadoReal, fecha_ingreso: socio.fecha_ingreso }, cuotas });
 });
 
 app.get('/api/socio-perfil', async (req, res) => {
@@ -459,7 +462,10 @@ app.get('/api/socio-perfil', async (req, res) => {
     'SELECT * FROM cuotas WHERE socio_id = $1 ORDER BY mes DESC', [socio.id]
   )).rows;
 
-  res.json({ socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: socio.estado, fecha_ingreso: socio.fecha_ingreso }, cuotas });
+  const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const estadoReal = cuotas.some(c => c.mes && c.mes.startsWith(mesActual) && c.pagado) ? 'al-dia' : 'deuda';
+
+  res.json({ socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: estadoReal, fecha_ingreso: socio.fecha_ingreso }, cuotas });
 });
 
 // ═══════════════════════════════════
