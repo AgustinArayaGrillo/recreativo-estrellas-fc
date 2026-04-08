@@ -29,10 +29,7 @@
       width: 100%; max-width: 420px;
       padding: 1rem; text-align: center;
     }
-    .icono {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-    }
+    .icono { font-size: 4rem; margin-bottom: 1rem; }
     .card {
       background: rgba(26,26,26,0.92);
       border: 1px solid rgba(46,204,113,0.3);
@@ -73,6 +70,42 @@
       color: var(--gris-claro);
       margin-top: 1.25rem;
     }
+    .info-socio {
+      background: rgba(245,197,24,0.06);
+      border: 1px solid rgba(245,197,24,0.2);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      color: var(--gris-claro);
+      margin-top: 1rem;
+      text-align: left;
+    }
+    .info-socio span { color: var(--amarillo); font-weight: 600; }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: var(--amarillo);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-portal {
+      display: inline-block;
+      margin-top: 1.25rem;
+      background: var(--amarillo);
+      color: var(--negro);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 1.5px;
+      padding: 0.65rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn-portal:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -86,10 +119,69 @@
       <div class="divider"></div>
       <p>Tu pago fue <strong>aprobado</strong> correctamente.</p>
       <p>Ya sos socio del <strong>Recreativo Estrellas F.C.</strong> y tu primera cuota quedó registrada.</p>
-      <div class="nota">
-        📋 Tu alta puede demorar unos minutos en procesarse. Si tenés alguna consulta comunicate con la comisión del club.
+
+      <div id="estadoRegistro" class="nota">
+        <span class="spinner"></span> Confirmando tu registro...
       </div>
+
+      <div id="infoSocio" style="display:none;" class="info-socio"></div>
+      <div id="btnPortal" style="display:none;"></div>
     </div>
   </div>
+
+  <script>
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const paymentId     = params.get('payment_id') || params.get('collection_id');
+      const solicitudId   = params.get('external_reference');
+      const status        = params.get('status') || params.get('collection_status');
+
+      const estadoEl   = document.getElementById('estadoRegistro');
+      const infoEl     = document.getElementById('infoSocio');
+      const btnEl      = document.getElementById('btnPortal');
+
+      // Si no vienen params de MP, mostramos mensaje genérico
+      if (!paymentId || !solicitudId) {
+        estadoEl.innerHTML = '📋 Tu alta puede demorar unos minutos en procesarse. Si tenés alguna consulta comunicate con la comisión del club.';
+        return;
+      }
+
+      if (status && status !== 'approved') {
+        estadoEl.innerHTML = '⚠️ El pago está pendiente de aprobación. Te avisaremos cuando se confirme.';
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/mp-confirmar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_id: paymentId, solicitud_id: solicitudId })
+        });
+        const data = await resp.json();
+
+        if (data.ok) {
+          estadoEl.innerHTML = '✅ Tu registro fue confirmado correctamente.';
+          estadoEl.style.background = 'rgba(46,204,113,0.07)';
+
+          if (data.socio) {
+            infoEl.innerHTML = `
+              <div style="margin-bottom:0.3rem;">👤 <span>${data.socio.nombre} ${data.socio.apellido}</span></div>
+              <div>📅 Fecha de ingreso: <span>${new Date().toLocaleDateString('es-AR')}</span></div>
+              <div>🏷️ Categoría: <span>General</span></div>
+              <div>💳 Primera cuota: <span>Pagada ✓</span></div>
+            `;
+            infoEl.style.display = 'block';
+          }
+
+          btnEl.innerHTML = '<a href="/login.html" class="btn-portal">🪪 Ver mi cuenta</a>';
+          btnEl.style.display = 'block';
+        } else {
+          estadoEl.innerHTML = '📋 Tu alta puede demorar unos minutos en procesarse. Si tenés alguna consulta comunicate con la comisión del club.';
+        }
+      } catch {
+        estadoEl.innerHTML = '📋 Tu alta puede demorar unos minutos en procesarse. Si tenés alguna consulta comunicate con la comisión del club.';
+      }
+    })();
+  </script>
 </body>
 </html>

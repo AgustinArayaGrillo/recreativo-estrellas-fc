@@ -6,7 +6,7 @@ const path    = require('path');
 const { pool, initDB } = require('./db');
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
-const BASE_URL = process.env.BASE_URL || 'https://recreativo-estrellas-fc-production.up.railway.app';
+const BASE_URL = process.env.BASE_URL || 'https://recreativo-estrellas-fc.onrender.com';
 
 function getMPClient() {
   const token = process.env.MP_ACCESS_TOKEN;
@@ -298,25 +298,27 @@ app.post('/api/mp-webhook', async (req, res) => {
     const solicitud = (await pool.query('SELECT * FROM solicitudes WHERE id = $1', [solicitudId])).rows[0];
     if (!solicitud || solicitud.estado === 'aprobado') return;
 
-    const socioResult = await pool.query(`
-      INSERT INTO socios (nombre, apellido, dni, telefono, categoria, estado)
-      VALUES ($1, $2, $3, $4, 'general', 'al-dia')
-      RETURNING id
-    `, [solicitud.nombre, solicitud.apellido, solicitud.dni, solicitud.telefono]);
-
     const now = new Date();
+    const fechaHoy = now.toISOString().split('T')[0];
     const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const socioResult = await pool.query(`
+      INSERT INTO socios (nombre, apellido, dni, telefono, categoria, estado, fecha_ingreso)
+      VALUES ($1, $2, $3, $4, 'general', 'al-dia', $5)
+      RETURNING id
+    `, [solicitud.nombre, solicitud.apellido, solicitud.dni, solicitud.telefono, fechaHoy]);
+
     await pool.query(`
       INSERT INTO cuotas (socio_id, mes, monto, pagado, fecha_pago, comprobante, notas)
       VALUES ($1, $2, 10000, 1, $3, $4, 'Pago via Mercado Pago — cuota de ingreso')
-    `, [socioResult.rows[0].id, mes, now.toISOString().split('T')[0], String(payment.id)]);
+    `, [socioResult.rows[0].id, mes, fechaHoy, String(payment.id)]);
 
     await pool.query(
       "UPDATE solicitudes SET estado = 'aprobado', mp_payment_id = $1 WHERE id = $2",
       [String(payment.id), solicitudId]
     );
 
-    console.log(`✅ Nuevo socio registrado: ${solicitud.nombre} ${solicitud.apellido} (DNI ${solicitud.dni})`);
+    console.log(`✅ Nuevo socio registrado: ${solicitud.nombre} ${solicitud.apellido} (DNI ${solicitud.dni}) — Fecha: ${fechaHoy}`);
   } catch (err) {
     console.error('Error procesando webhook MP:', err);
   }
@@ -357,6 +359,77 @@ app.get('/api/socio-perfil', async (req, res) => {
   )).rows;
 
   res.json({ socio: { nombre: socio.nombre, apellido: socio.apellido, dni: socio.dni, categoria: socio.categoria, estado: socio.estado, fecha_ingreso: socio.fecha_ingreso }, cuotas });
+});
+
+// ═══════════════════════════════════
+//  CONFIRMAR PAGO — respaldo al webhook
+//  MP lo llama desde pago-exitoso.html con los params de la URL
+// ═══════════════════════════════════
+app.post('/api/mp-confirmar', async (req, res) => {
+  const { payment_id, solicitud_id } = req.body;
+  if (!payment_id || !solicitud_id) return res.status(400).json({ error: 'Faltan datos' });
+
+  const mpClient = getMPClient();
+  if (!mpClient) return res.status(503).json({ error: 'MP no configurado' });
+
+  try {
+    const paymentClient = new Payment(mpClient);
+    const payment = await paymentClient.get({ id: payment_id });
+
+    if (payment.status !== 'approved') {
+      return res.status(400).json({ error: 'El pago no está aprobado', status: payment.status });
+    }
+
+    const solicitud = (await pool.query('SELECT * FROM solicitudes WHERE id = $1', [solicitud_id])).rows[0];
+    if (!solicitud) return res.status(404).json({ error: 'Solicitud no encontrada' });
+
+    // Si ya fue procesado por el webhook, devuelvo ok igual
+    if (solicitud.estado === 'aprobado') {
+      const socio = (await pool.query('SELECT id, nombre, apellido FROM socios WHERE dni = $1', [solicitud.dni])).rows[0];
+      return res.json({ ok: true, ya_registrado: true, socio });
+    }
+
+    // Verificar que el payment pertenece a esta solicitud
+    if (String(payment.external_reference) !== String(solicitud_id)) {
+      return res.status(400).json({ error: 'El pago no coincide con la solicitud' });
+    }
+
+    // Verificar si el socio ya existe (por si el webhook lo creó a medias)
+    const socioExiste = (await pool.query('SELECT id FROM socios WHERE dni = $1', [solicitud.dni])).rows[0];
+    if (socioExiste) {
+      await pool.query(
+        "UPDATE solicitudes SET estado = 'aprobado', mp_payment_id = $1 WHERE id = $2",
+        [String(payment.id), solicitud_id]
+      );
+      return res.json({ ok: true, ya_registrado: true });
+    }
+
+    const now = new Date();
+    const fechaHoy = now.toISOString().split('T')[0];
+    const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const socioResult = await pool.query(`
+      INSERT INTO socios (nombre, apellido, dni, telefono, categoria, estado, fecha_ingreso)
+      VALUES ($1, $2, $3, $4, 'general', 'al-dia', $5)
+      RETURNING id, nombre, apellido
+    `, [solicitud.nombre, solicitud.apellido, solicitud.dni, solicitud.telefono, fechaHoy]);
+
+    await pool.query(`
+      INSERT INTO cuotas (socio_id, mes, monto, pagado, fecha_pago, comprobante, notas)
+      VALUES ($1, $2, 10000, 1, $3, $4, 'Pago via Mercado Pago — cuota de ingreso')
+    `, [socioResult.rows[0].id, mes, fechaHoy, String(payment.id)]);
+
+    await pool.query(
+      "UPDATE solicitudes SET estado = 'aprobado', mp_payment_id = $1 WHERE id = $2",
+      [String(payment.id), solicitud_id]
+    );
+
+    console.log(`✅ [CONFIRMAR] Socio registrado: ${solicitud.nombre} ${solicitud.apellido} — Fecha: ${fechaHoy}`);
+    res.json({ ok: true, ya_registrado: false, socio: socioResult.rows[0] });
+  } catch (err) {
+    console.error('Error en mp-confirmar:', err);
+    res.status(500).json({ error: 'Error verificando el pago' });
+  }
 });
 
 // ─── CATCH-ALL → login ───
