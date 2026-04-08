@@ -66,8 +66,10 @@ app.get('/api/stats', auth, async (req, res) => {
   const mes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
   const total  = parseInt((await pool.query('SELECT COUNT(*) as c FROM socios')).rows[0].c);
-  const alDia  = parseInt((await pool.query("SELECT COUNT(*) as c FROM socios WHERE estado = 'al-dia'")).rows[0].c);
-  const deuda  = parseInt((await pool.query("SELECT COUNT(*) as c FROM socios WHERE estado = 'deuda'")).rows[0].c);
+  const alDia  = parseInt((await pool.query(
+    "SELECT COUNT(DISTINCT socio_id) as c FROM cuotas WHERE pagado = 1 AND mes LIKE $1", [`${mes}%`]
+  )).rows[0].c);
+  const deuda  = total - alDia;
   const recaud = parseFloat((await pool.query(
     "SELECT COALESCE(SUM(monto),0) as total FROM cuotas WHERE pagado = 1 AND mes LIKE $1",
     [`${mes}%`]
@@ -99,12 +101,16 @@ app.get('/api/socios', auth, async (req, res) => {
   sql += ' ORDER BY id DESC';
   const socios = (await pool.query(sql, params)).rows;
 
-  const withCuotas = await Promise.all(socios.map(async s => ({
-    ...s,
-    cuotas_pagas: parseInt((await pool.query(
+  const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const withCuotas = await Promise.all(socios.map(async s => {
+    const cuotas_pagas = parseInt((await pool.query(
       'SELECT COUNT(*) as c FROM cuotas WHERE socio_id = $1 AND pagado = 1', [s.id]
-    )).rows[0].c)
-  })));
+    )).rows[0].c);
+    const tieneCuotaMes = (await pool.query(
+      'SELECT id FROM cuotas WHERE socio_id = $1 AND pagado = 1 AND mes LIKE $2', [s.id, `${mesActual}%`]
+    )).rows.length > 0;
+    return { ...s, estado: tieneCuotaMes ? 'al-dia' : 'deuda', cuotas_pagas };
+  }));
 
   res.json(withCuotas);
 });
@@ -114,14 +120,16 @@ app.get('/api/socios/dni/:dni', auth, async (req, res) => {
   const socio = rows[0];
   if (!socio) return res.status(404).json({ error: 'Socio no encontrado' });
 
+  const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const cuotas_pagas = parseInt((await pool.query(
     'SELECT COUNT(*) as c FROM cuotas WHERE socio_id = $1 AND pagado = 1', [socio.id]
   )).rows[0].c);
   const cuotas = (await pool.query(
     'SELECT * FROM cuotas WHERE socio_id = $1 ORDER BY mes DESC', [socio.id]
   )).rows;
+  const tieneCuotaMes = cuotas.some(c => c.mes && c.mes.startsWith(mesActual) && c.pagado);
 
-  res.json({ ...socio, cuotas_pagas, cuotas });
+  res.json({ ...socio, estado: tieneCuotaMes ? 'al-dia' : 'deuda', cuotas_pagas, cuotas });
 });
 
 app.get('/api/socios/:id', auth, async (req, res) => {
@@ -129,14 +137,16 @@ app.get('/api/socios/:id', auth, async (req, res) => {
   const socio = rows[0];
   if (!socio) return res.status(404).json({ error: 'Socio no encontrado' });
 
+  const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const cuotas_pagas = parseInt((await pool.query(
     'SELECT COUNT(*) as c FROM cuotas WHERE socio_id = $1 AND pagado = 1', [socio.id]
   )).rows[0].c);
   const cuotas = (await pool.query(
     'SELECT * FROM cuotas WHERE socio_id = $1 ORDER BY mes DESC', [socio.id]
   )).rows;
+  const tieneCuotaMes = cuotas.some(c => c.mes && c.mes.startsWith(mesActual) && c.pagado);
 
-  res.json({ ...socio, cuotas_pagas, cuotas });
+  res.json({ ...socio, estado: tieneCuotaMes ? 'al-dia' : 'deuda', cuotas_pagas, cuotas });
 });
 
 app.post('/api/socios', auth, soloAdmin, async (req, res) => {
