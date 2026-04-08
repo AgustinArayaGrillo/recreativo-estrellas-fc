@@ -365,6 +365,26 @@
       if (!isAdmin) document.getElementById('dniSocio').focus();
     }
 
+    async function pagarCuota(dni, cuotaId) {
+      const btn = event.target;
+      btn.textContent = '...';
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/socio-pagar-cuota`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni, cuota_id: cuotaId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        window.location.href = data.init_point;
+      } catch (err) {
+        alert('No se pudo procesar el pago: ' + err.message);
+        btn.textContent = '💳 PAGAR';
+        btn.disabled = false;
+      }
+    }
+
     async function buscarSocio(e) {
       e.preventDefault();
       const dni = document.getElementById('dniSocio').value.trim();
@@ -408,16 +428,23 @@
         } else {
           cuotasEl.innerHTML = cuotas.map(c => {
             const monto = c.monto ? `$${Number(c.monto).toLocaleString('es-AR')}` : '';
-            const badge = c.pagado
-              ? '<span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.55rem;border-radius:20px;background:rgba(39,174,96,0.15);color:#27ae60;">Pagada</span>'
-              : '<span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.55rem;border-radius:20px;background:rgba(231,76,60,0.15);color:#e74c3c;">Pendiente</span>';
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(255,255,255,0.03);border:1px solid var(--negro-borde);">
-              <div>
-                <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${c.mes}</div>
-                ${monto ? `<div style="font-size:0.78rem;color:var(--gris);">${monto}</div>` : ''}
-              </div>
-              ${badge}
-            </div>`;
+            if (c.pagado) {
+              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(255,255,255,0.03);border:1px solid var(--negro-borde);">
+                <div>
+                  <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${c.mes}</div>
+                  ${monto ? `<div style="font-size:0.78rem;color:var(--gris);">${monto}</div>` : ''}
+                </div>
+                <span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.55rem;border-radius:20px;background:rgba(39,174,96,0.15);color:#27ae60;">Pagada</span>
+              </div>`;
+            } else {
+              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(231,76,60,0.05);border:1px solid rgba(231,76,60,0.25);">
+                <div>
+                  <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${c.mes}</div>
+                  ${monto ? `<div style="font-size:0.78rem;color:var(--gris);">${monto}</div>` : ''}
+                </div>
+                <button onclick="pagarCuota('${socio.dni}', ${c.id})" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
+              </div>`;
+            }
           }).join('');
         }
 

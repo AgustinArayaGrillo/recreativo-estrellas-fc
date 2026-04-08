@@ -223,15 +223,45 @@
       lista.innerHTML = cuotas.map(c => {
         const mes = c.mes || '—';
         const monto = c.monto ? `$${Number(c.monto).toLocaleString('es-AR')}` : '';
-        const estado = c.pagado ? '<span class="cuota-badge pagada">Pagada</span>' : '<span class="cuota-badge pendiente">Pendiente</span>';
-        return `<div class="cuota-row">
-          <div>
-            <div class="cuota-mes">${mes}</div>
-            ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
-          </div>
-          ${estado}
-        </div>`;
+        if (c.pagado) {
+          return `<div class="cuota-row">
+            <div>
+              <div class="cuota-mes">${mes}</div>
+              ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
+            </div>
+            <span class="cuota-badge pagada">Pagada</span>
+          </div>`;
+        } else {
+          return `<div class="cuota-row" style="background:rgba(231,76,60,0.05);border-color:rgba(231,76,60,0.25);">
+            <div>
+              <div class="cuota-mes">${mes}</div>
+              ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
+            </div>
+            <button onclick="pagarCuota(${c.id})" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
+          </div>`;
+        }
       }).join('');
+    }
+
+    async function pagarCuota(cuotaId) {
+      const btn = event.target;
+      const dni = document.getElementById('dniInput').value.trim();
+      btn.textContent = '...';
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/socio-pagar-cuota`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni, cuota_id: cuotaId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        window.location.href = data.init_point;
+      } catch (err) {
+        alert('No se pudo procesar el pago: ' + err.message);
+        btn.textContent = '💳 PAGAR';
+        btn.disabled = false;
+      }
     }
 
     function cerrarSesion() {

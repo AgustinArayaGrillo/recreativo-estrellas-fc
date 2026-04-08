@@ -294,7 +294,26 @@ app.post('/api/mp-webhook', async (req, res) => {
 
     if (payment.status !== 'approved') return;
 
-    const solicitudId = payment.external_reference;
+    const externalRef = String(payment.external_reference || '');
+
+    // ── PAGO DE CUOTA de socio existente ──
+    if (externalRef.startsWith('cuota:')) {
+      const [, socioId, cuotaId] = externalRef.split(':');
+      const cuota = (await pool.query('SELECT * FROM cuotas WHERE id = $1', [cuotaId])).rows[0];
+      if (!cuota || cuota.pagado) return;
+
+      const fechaHoy = new Date().toISOString().split('T')[0];
+      await pool.query(
+        'UPDATE cuotas SET pagado=1, fecha_pago=$1, comprobante=$2 WHERE id=$3',
+        [fechaHoy, String(payment.id), cuotaId]
+      );
+      await pool.query("UPDATE socios SET estado='al-dia' WHERE id=$1", [socioId]);
+      console.log(`✅ Cuota pagada (webhook): socio ${socioId}, cuota ${cuotaId}, fecha ${fechaHoy}`);
+      return;
+    }
+
+    // ── INSCRIPCIÓN de nuevo socio ──
+    const solicitudId = externalRef;
     const solicitud = (await pool.query('SELECT * FROM solicitudes WHERE id = $1', [solicitudId])).rows[0];
     if (!solicitud || solicitud.estado === 'aprobado') return;
 
@@ -321,6 +340,88 @@ app.post('/api/mp-webhook', async (req, res) => {
     console.log(`✅ Nuevo socio registrado: ${solicitud.nombre} ${solicitud.apellido} (DNI ${solicitud.dni}) — Fecha: ${fechaHoy}`);
   } catch (err) {
     console.error('Error procesando webhook MP:', err);
+  }
+});
+
+// ═══════════════════════════════════
+//  PAGAR CUOTA — socio existente
+// ═══════════════════════════════════
+app.post('/api/socio-pagar-cuota', async (req, res) => {
+  const { dni, cuota_id } = req.body;
+  if (!dni || !cuota_id) return res.status(400).json({ error: 'Faltan datos' });
+
+  const socio = (await pool.query('SELECT * FROM socios WHERE dni = $1', [dni.trim()])).rows[0];
+  if (!socio) return res.status(404).json({ error: 'Socio no encontrado' });
+
+  const cuota = (await pool.query('SELECT * FROM cuotas WHERE id = $1 AND socio_id = $2', [cuota_id, socio.id])).rows[0];
+  if (!cuota) return res.status(404).json({ error: 'Cuota no encontrada' });
+  if (cuota.pagado) return res.status(400).json({ error: 'Esta cuota ya está pagada' });
+
+  const mpClient = getMPClient();
+  if (!mpClient) return res.status(503).json({ error: 'Pagos no disponibles' });
+
+  try {
+    const preference = new Preference(mpClient);
+    const monto = cuota.monto && cuota.monto > 0 ? Number(cuota.monto) : 10000;
+    const pref = await preference.create({
+      body: {
+        items: [{
+          title: `Cuota ${cuota.mes} — Recreativo Estrellas F.C.`,
+          quantity: 1,
+          unit_price: monto,
+          currency_id: 'ARS'
+        }],
+        payer: { name: socio.nombre, surname: socio.apellido },
+        external_reference: `cuota:${socio.id}:${cuota.id}`,
+        back_urls: {
+          success: `${BASE_URL}/pago-cuota-exitoso.html`,
+          failure:  `${BASE_URL}/pago-fallido.html`,
+          pending:  `${BASE_URL}/pago-pendiente.html`
+        },
+        auto_return: 'approved'
+      }
+    });
+    res.json({ init_point: pref.init_point });
+  } catch (err) {
+    console.error('Error MP cuota:', err);
+    res.status(500).json({ error: 'Error al generar el pago' });
+  }
+});
+
+// ─── Confirmar pago de cuota (respaldo al webhook) ───
+app.post('/api/mp-cuota-confirmar', async (req, res) => {
+  const { payment_id, socio_id, cuota_id } = req.body;
+  if (!payment_id || !socio_id || !cuota_id) return res.status(400).json({ error: 'Faltan datos' });
+
+  const mpClient = getMPClient();
+  if (!mpClient) return res.status(503).json({ error: 'MP no configurado' });
+
+  try {
+    const paymentClient = new Payment(mpClient);
+    const payment = await paymentClient.get({ id: payment_id });
+
+    if (payment.status !== 'approved') {
+      return res.status(400).json({ error: 'El pago no está aprobado', status: payment.status });
+    }
+
+    const cuota = (await pool.query('SELECT * FROM cuotas WHERE id = $1 AND socio_id = $2', [cuota_id, socio_id])).rows[0];
+    if (!cuota) return res.status(404).json({ error: 'Cuota no encontrada' });
+
+    if (cuota.pagado) return res.json({ ok: true, ya_registrado: true });
+
+    const fechaHoy = new Date().toISOString().split('T')[0];
+    await pool.query(
+      'UPDATE cuotas SET pagado=1, fecha_pago=$1, comprobante=$2 WHERE id=$3',
+      [fechaHoy, String(payment.id), cuota_id]
+    );
+    await pool.query("UPDATE socios SET estado='al-dia' WHERE id=$1", [socio_id]);
+
+    const socio = (await pool.query('SELECT nombre, apellido FROM socios WHERE id = $1', [socio_id])).rows[0];
+    console.log(`✅ [CONFIRMAR] Cuota pagada: socio ${socio_id}, cuota ${cuota_id} — ${fechaHoy}`);
+    res.json({ ok: true, ya_registrado: false, socio, mes: cuota.mes });
+  } catch (err) {
+    console.error('Error en mp-cuota-confirmar:', err);
+    res.status(500).json({ error: 'Error verificando el pago' });
   }
 });
 
