@@ -57,8 +57,8 @@
               <span class="form-error" id="errApellido"></span>
             </div>
             <div class="form-group">
-              <label>DNI *</label>
-              <input type="number" id="dni" placeholder="Ej: 35123456" min="1000000" max="99999999" required />
+              <label>DNI</label>
+              <input type="text" id="dni" placeholder="Ej: 35123456 (opcional)" />
               <span class="form-error" id="errDNI"></span>
             </div>
             <div class="form-group">
@@ -197,17 +197,17 @@
 
       const nombre   = document.getElementById('nombre').value.trim();
       const apellido = document.getElementById('apellido').value.trim();
-      const dni      = document.getElementById('dni').value.trim();
+      let dni        = document.getElementById('dni').value.trim();
       const telefono = document.getElementById('telefono').value.trim();
       const email    = document.getElementById('email').value.trim();
       const fechaIng = document.getElementById('fechaIngreso').value;
 
+      // Si no se ingresó DNI, generar código interno temporal
+      if (!dni) dni = `SINDNI-${Date.now()}`;
+
       let valido = true;
       if (!nombre)   { setError('Nombre',   'El nombre es obligatorio.');    valido = false; }
       if (!apellido) { setError('Apellido', 'El apellido es obligatorio.');  valido = false; }
-      if (!dni || dni.length < 7 || dni.length > 8) {
-        setError('DNI', 'Ingresá un DNI válido (7 u 8 dígitos).'); valido = false;
-      }
       // teléfono opcional
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         setError('Email', 'El email no es válido.'); valido = false;
