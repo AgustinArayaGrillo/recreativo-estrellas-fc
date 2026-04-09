@@ -118,11 +118,12 @@
         </div>
 
         <div style="display:flex;gap:0.75rem;margin-bottom:0.75rem">
-          <input type="number" id="buscarDNIPago" placeholder="Ingresá el DNI del socio..."
+          <input type="text" id="buscarDNIPago" placeholder="Ingresá DNI o apellido..."
             style="flex:1;background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.7rem 1rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.95rem"
             onkeydown="if(event.key==='Enter') buscarSocioPago()" />
           <button class="btn btn-primary" onclick="buscarSocioPago()">Buscar</button>
         </div>
+        <div id="listaSociosPago" style="display:none;margin-bottom:0.75rem"></div>
 
         <div id="resultadoPagoBusqueda" style="display:none">
           <div class="socio-search-result">
@@ -303,38 +304,76 @@
 
     // ─── BUSCAR SOCIO PARA PAGO ───
     async function buscarSocioPago() {
-      const dni = document.getElementById('buscarDNIPago').value.trim();
-      if (!dni) { showToast('Ingresá un DNI.', 'error'); return; }
+      const q = document.getElementById('buscarDNIPago').value.trim();
+      if (!q) { showToast('Ingresá un DNI o apellido.', 'error'); return; }
 
       document.getElementById('resultadoPagoBusqueda').style.display = 'none';
       document.getElementById('sinSocioPago').style.display = 'none';
+      document.getElementById('listaSociosPago').style.display = 'none';
 
       try {
-        const res = await fetch(`${API}/socios/dni/${dni}`, { headers: authHeaders() });
-        if (res.status === 404) {
-          document.getElementById('sinSocioPago').style.display = 'block';
-          socioActual = null;
-          return;
+        const esDni = /^\d+$/.test(q);
+
+        if (esDni) {
+          const res = await fetch(`${API}/socios/dni/${q}`, { headers: authHeaders() });
+          if (res.status === 404) {
+            document.getElementById('sinSocioPago').innerHTML = '<div class="empty-state" style="padding:1.5rem 0"><div class="icon">🔍</div><p>No se encontró ningún socio con ese DNI.</p></div>';
+            document.getElementById('sinSocioPago').style.display = 'block';
+            socioActual = null;
+            return;
+          }
+          const socio = await res.json();
+          cargarSocioEnPago(socio);
+        } else {
+          const res = await fetch(`${API}/socios?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+          const lista = await res.json();
+          if (!lista.length) {
+            document.getElementById('sinSocioPago').innerHTML = '<div class="empty-state" style="padding:1.5rem 0"><div class="icon">🔍</div><p>No se encontró ningún socio con ese apellido.</p></div>';
+            document.getElementById('sinSocioPago').style.display = 'block';
+            socioActual = null;
+            return;
+          }
+          if (lista.length === 1) {
+            const res2 = await fetch(`${API}/socios/dni/${lista[0].dni}`, { headers: authHeaders() });
+            cargarSocioEnPago(await res2.json());
+          } else {
+            const listEl = document.getElementById('listaSociosPago');
+            listEl.innerHTML = `
+              <div style="font-size:0.8rem;color:var(--gris);margin-bottom:0.5rem">Se encontraron ${lista.length} socios — hacé clic para seleccionar:</div>
+              ${lista.map(s => `
+                <div onclick="seleccionarSocioPorDni('${s.dni}')" style="cursor:pointer;padding:0.6rem 0.9rem;border:1px solid var(--negro-borde);border-radius:8px;margin-bottom:0.4rem;display:flex;justify-content:space-between;align-items:center;transition:border-color .2s" onmouseover="this.style.borderColor='var(--amarillo)'" onmouseout="this.style.borderColor='var(--negro-borde)'">
+                  <span style="color:var(--blanco);font-weight:500">${s.nombre} ${s.apellido}</span>
+                  <span style="color:var(--gris);font-size:0.8rem">DNI: ${s.dni}</span>
+                </div>`).join('')}`;
+            listEl.style.display = 'block';
+          }
         }
-
-        socioActual = await res.json();
-        cuotasPagadasSocio = socioActual.cuotas || [];
-        mesesSeleccionados.clear();
-
-        document.getElementById('pagoSocioNombre').textContent = `${socioActual.nombre} ${socioActual.apellido}`;
-        document.getElementById('pagoSocioInfo').textContent   = `DNI: ${socioActual.dni} — Tel: ${socioActual.telefono} — Cuotas pagas: ${socioActual.cuotas_pagas}`;
-
-        const estadoBadge = document.getElementById('pagoSocioEstado');
-        estadoBadge.textContent  = socioActual.estado === 'al-dia' ? 'Al día' : 'Con deuda';
-        estadoBadge.className    = `badge ${socioActual.estado === 'al-dia' ? 'badge-verde' : 'badge-naranja'}`;
-
-        document.getElementById('pagoFecha').value = new Date().toISOString().split('T')[0];
-        document.getElementById('resultadoPagoBusqueda').style.display = 'block';
-        renderMeses();
-
       } catch {
         showToast('Error al conectar con el servidor.', 'error');
       }
+    }
+
+    async function seleccionarSocioPorDni(dni) {
+      document.getElementById('listaSociosPago').style.display = 'none';
+      const res = await fetch(`${API}/socios/dni/${dni}`, { headers: authHeaders() });
+      cargarSocioEnPago(await res.json());
+    }
+
+    function cargarSocioEnPago(socio) {
+      socioActual = socio;
+      cuotasPagadasSocio = socioActual.cuotas || [];
+      mesesSeleccionados.clear();
+
+      document.getElementById('pagoSocioNombre').textContent = `${socioActual.nombre} ${socioActual.apellido}`;
+      document.getElementById('pagoSocioInfo').textContent   = `DNI: ${socioActual.dni} — Tel: ${socioActual.telefono || 'sin teléfono'} — Cuotas pagas: ${socioActual.cuotas_pagas}`;
+
+      const estadoBadge = document.getElementById('pagoSocioEstado');
+      estadoBadge.textContent = socioActual.estado === 'al-dia' ? 'Al día' : 'Con deuda';
+      estadoBadge.className   = `badge ${socioActual.estado === 'al-dia' ? 'badge-verde' : 'badge-naranja'}`;
+
+      document.getElementById('pagoFecha').value = new Date().toISOString().split('T')[0];
+      document.getElementById('resultadoPagoBusqueda').style.display = 'block';
+      renderMeses();
     }
 
     function renderMeses() {
