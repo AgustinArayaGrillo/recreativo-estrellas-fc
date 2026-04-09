@@ -76,6 +76,8 @@
           <tbody id="tablaSocios"></tbody>
         </table>
       </div>
+      <!-- PAGINACIÓN -->
+      <div id="paginacion" style="display:flex;align-items:center;justify-content:center;gap:0.4rem;padding:1rem 0;flex-wrap:wrap"></div>
     </div>
 
   </div>
@@ -133,22 +135,41 @@
 
     let socioEditando   = null;
     let socioEliminando = null;
+    let sociosActuales  = [];
+    let paginaActual    = 1;
+    const POR_PAGINA    = 20;
+
+    function dniDisplay(dni) {
+      return (!dni || dni.startsWith('SINDNI-')) ? '—' : dni;
+    }
 
     function renderTabla(lista) {
-      const tbody = document.getElementById('tablaSocios');
-      document.getElementById('contadorFiltro').textContent = `${lista.length} socio${lista.length !== 1 ? 's' : ''}`;
+      sociosActuales = lista;
+      paginaActual   = 1;
+      renderPagina();
+    }
 
-      if (lista.length === 0) {
+    function renderPagina() {
+      const tbody  = document.getElementById('tablaSocios');
+      const total  = sociosActuales.length;
+      const totalPags = Math.ceil(total / POR_PAGINA);
+      const desde  = (paginaActual - 1) * POR_PAGINA;
+      const pagina = sociosActuales.slice(desde, desde + POR_PAGINA);
+
+      document.getElementById('contadorFiltro').textContent = `${total} socio${total !== 1 ? 's' : ''}`;
+
+      if (total === 0) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">🔍</div><p>No se encontraron socios con ese filtro.</p></div></td></tr>`;
+        document.getElementById('paginacion').innerHTML = '';
         return;
       }
 
-      tbody.innerHTML = lista.map(s => `
+      tbody.innerHTML = pagina.map(s => `
         <tr>
           <td style="color:var(--gris)">${s.id}</td>
           <td style="color:var(--blanco);font-weight:500">${s.nombre} ${s.apellido}</td>
-          <td>${s.dni}</td>
-          <td>${s.telefono}</td>
+          <td>${dniDisplay(s.dni)}</td>
+          <td>${s.telefono || '—'}</td>
           <td style="color:var(--gris)">${s.email || '—'}</td>
           <td style="color:var(--amarillo);font-weight:600">${s.cuotas_pagas}</td>
           <td>
@@ -164,6 +185,33 @@
           </td>
         </tr>
       `).join('');
+
+      // Paginación
+      const pag = document.getElementById('paginacion');
+      if (totalPags <= 1) { pag.innerHTML = ''; return; }
+
+      const btnStyle = (activo) => `style="padding:0.35rem 0.75rem;border-radius:6px;border:1.5px solid ${activo ? 'var(--amarillo)' : 'var(--negro-borde)'};background:${activo ? 'var(--amarillo)' : 'transparent'};color:${activo ? 'var(--negro)' : 'var(--gris-claro)'};font-weight:${activo ? '700' : '400'};cursor:pointer;font-family:'Poppins',sans-serif;font-size:0.8rem"`;
+
+      let html = `<button ${btnStyle(false)} onclick="irPagina(${paginaActual - 1})" ${paginaActual === 1 ? 'disabled' : ''}>‹ Ant</button>`;
+
+      for (let i = 1; i <= totalPags; i++) {
+        if (totalPags > 7 && i > 2 && i < totalPags - 1 && Math.abs(i - paginaActual) > 1) {
+          if (i === 3 || i === totalPags - 2) html += `<span style="color:var(--gris);padding:0 0.2rem">…</span>`;
+          continue;
+        }
+        html += `<button ${btnStyle(i === paginaActual)} onclick="irPagina(${i})">${i}</button>`;
+      }
+
+      html += `<button ${btnStyle(false)} onclick="irPagina(${paginaActual + 1})" ${paginaActual === totalPags ? 'disabled' : ''}>Sig ›</button>`;
+      pag.innerHTML = html;
+    }
+
+    function irPagina(n) {
+      const total = Math.ceil(sociosActuales.length / POR_PAGINA);
+      if (n < 1 || n > total) return;
+      paginaActual = n;
+      renderPagina();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function filtrarSocios() {
@@ -206,7 +254,7 @@
           </div>
           <div class="form-group">
             <label>DNI</label>
-            <input type="text" id="editDNI" value="${socioEditando.dni}" />
+            <input type="text" id="editDNI" value="${socioEditando.dni?.startsWith('SINDNI-') ? '' : (socioEditando.dni || '')}" placeholder="Sin DNI registrado" />
           </div>
           <div class="form-group">
             <label>Teléfono</label>
