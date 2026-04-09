@@ -152,7 +152,7 @@ app.get('/api/socios/:id', auth, async (req, res) => {
 app.post('/api/socios', auth, soloAdmin, async (req, res) => {
   const { nombre, apellido, dni, telefono, email, direccion, fecha_nac, fecha_ingreso, categoria, estado, observaciones } = req.body;
 
-  if (!nombre || !apellido || !dni || !telefono) {
+  if (!nombre || !apellido || !dni) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
 

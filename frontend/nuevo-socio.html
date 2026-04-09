@@ -75,8 +75,8 @@
           </h3>
           <div class="form-grid">
             <div class="form-group">
-              <label>Teléfono / WhatsApp *</label>
-              <input type="tel" id="telefono" placeholder="Ej: 3564-123456" required />
+              <label>Teléfono / WhatsApp</label>
+              <input type="tel" id="telefono" placeholder="Ej: 3564-123456" />
               <span class="form-error" id="errTelefono"></span>
             </div>
             <div class="form-group">
@@ -208,7 +208,7 @@
       if (!dni || dni.length < 7 || dni.length > 8) {
         setError('DNI', 'Ingresá un DNI válido (7 u 8 dígitos).'); valido = false;
       }
-      if (!telefono) { setError('Telefono', 'El teléfono es obligatorio.'); valido = false; }
+      // teléfono opcional
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         setError('Email', 'El email no es válido.'); valido = false;
       }
