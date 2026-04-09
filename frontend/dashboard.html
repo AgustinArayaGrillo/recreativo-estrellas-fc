@@ -70,14 +70,12 @@
     <!-- BUSCADOR DNI -->
     <div class="search-section">
       <div class="search-box">
-        <h2>🔍 CONSULTA RÁPIDA POR DNI</h2>
+        <h2>🔍 CONSULTA RÁPIDA POR DNI O APELLIDO</h2>
         <div class="search-input-group">
           <input
-            type="number"
+            type="text"
             id="inputDNI"
-            placeholder="Ingresá el DNI del socio..."
-            min="1000000"
-            max="99999999"
+            placeholder="Ingresá DNI o apellido del socio..."
             onkeydown="if(event.key==='Enter') buscarSocio()"
           />
           <button class="btn btn-primary" onclick="buscarSocio()">BUSCAR</button>
@@ -195,76 +193,135 @@
       }
     }
 
-    // ─── BÚSQUEDA DNI ───
+    // ─── BÚSQUEDA DNI O APELLIDO ───
     async function buscarSocio() {
-      const dni     = document.getElementById('inputDNI').value.trim();
+      const q         = document.getElementById('inputDNI').value.trim();
       const resultado = document.getElementById('resultadoSocio');
       const header    = document.getElementById('resultadoHeader');
       const body      = document.getElementById('resultadoBody');
 
-      if (!dni) { showToast('Ingresá un DNI para buscar.', 'error'); return; }
+      if (!q) { showToast('Ingresá un DNI o apellido para buscar.', 'error'); return; }
 
       header.className = 'resultado-header';
       header.innerHTML = '🔄 &nbsp; Buscando...';
       resultado.classList.add('visible');
       body.innerHTML = '';
 
+      const esDni = /^\d+$/.test(q);
+
       try {
-        const res = await fetch(`${API}/socios/dni/${dni}`, { headers: authHeaders() });
+        if (esDni) {
+          // Buscar por DNI exacto
+          const res = await fetch(`${API}/socios/dni/${q}`, { headers: authHeaders() });
+          if (res.status === 404) {
+            header.className = 'resultado-header no-socio';
+            header.innerHTML = '❌ &nbsp; DNI no encontrado — No figura como socio';
+            body.innerHTML = `
+              <div class="empty-state" style="padding:1.5rem 0">
+                <p>El DNI <strong>${q}</strong> no está registrado en el padrón.</p><br>
+                <a href="nuevo-socio.html" class="btn btn-primary btn-sm">+ Registrar como socio</a>
+              </div>`;
+            return;
+          }
+          const socio = await res.json();
+          mostrarResultadoSocio(socio, header, body);
+        } else {
+          // Buscar por apellido
+          const res    = await fetch(`${API}/socios?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+          const socios = await res.json();
 
-        if (res.status === 404) {
-          header.className = 'resultado-header no-socio';
-          header.innerHTML = '❌ &nbsp; DNI no encontrado — No figura como socio';
-          body.innerHTML = `
-            <div class="empty-state" style="padding:1.5rem 0">
-              <p>El DNI <strong>${dni}</strong> no está registrado en el padrón.</p><br>
-              <a href="nuevo-socio.html" class="btn btn-primary btn-sm">+ Registrar como socio</a>
-            </div>`;
-          return;
+          if (!socios.length) {
+            header.className = 'resultado-header no-socio';
+            header.innerHTML = '❌ &nbsp; Apellido no encontrado — No figura como socio';
+            body.innerHTML = `
+              <div class="empty-state" style="padding:1.5rem 0">
+                <p>No se encontraron socios con apellido <strong>${q}</strong>.</p><br>
+                <a href="nuevo-socio.html" class="btn btn-primary btn-sm">+ Registrar como socio</a>
+              </div>`;
+            return;
+          }
+
+          if (socios.length === 1) {
+            mostrarResultadoSocio(socios[0], header, body);
+          } else {
+            // Varios resultados — mostrar lista para elegir
+            header.className = 'resultado-header';
+            header.innerHTML = `🔍 &nbsp; ${socios.length} socios encontrados — Seleccioná uno`;
+            body.innerHTML = `
+              <div style="display:flex;flex-direction:column;gap:0.5rem;padding:0.75rem 0">
+                ${socios.map(s => `
+                  <button onclick="seleccionarSocio(${s.id})" style="
+                    background:var(--gris-oscuro);border:1px solid var(--borde);border-radius:8px;
+                    padding:0.75rem 1rem;text-align:left;cursor:pointer;color:var(--blanco);
+                    display:flex;justify-content:space-between;align-items:center;
+                    transition:border-color .2s
+                  " onmouseover="this.style.borderColor='var(--amarillo)'" onmouseout="this.style.borderColor='var(--borde)'">
+                    <span style="font-weight:600">${s.nombre} ${s.apellido}</span>
+                    <span style="color:var(--gris);font-size:.85rem">DNI: ${(!s.dni || s.dni.startsWith('SINDNI')) ? '—' : s.dni}</span>
+                  </button>
+                `).join('')}
+              </div>`;
+          }
         }
-
-        const socio   = await res.json();
-        const esAlDia = socio.estado === 'al-dia';
-
-        header.className = `resultado-header ${esAlDia ? 'al-dia' : 'con-deuda'}`;
-        header.innerHTML = esAlDia
-          ? `✅ &nbsp; SOCIO AL DÍA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`
-          : `⚠️ &nbsp; SOCIO CON DEUDA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`;
-
-        body.innerHTML = `
-          <div class="socio-info-grid">
-            <div class="socio-info-item">
-              <label>Nombre completo</label>
-              <span>${socio.nombre} ${socio.apellido}</span>
-            </div>
-            <div class="socio-info-item">
-              <label>DNI</label>
-              <span>${socio.dni}</span>
-            </div>
-            <div class="socio-info-item">
-              <label>Teléfono</label>
-              <span>${socio.telefono}</span>
-            </div>
-            <div class="socio-info-item">
-              <label>Email</label>
-              <span>${socio.email || '—'}</span>
-            </div>
-            <div class="socio-info-item">
-              <label>Cuotas pagas</label>
-              <span style="color:var(--amarillo);font-weight:700;font-size:1.2rem">${socio.cuotas_pagas}</span>
-            </div>
-            <div class="socio-info-item">
-              <label>Estado</label>
-              <span class="badge ${esAlDia ? 'badge-verde' : 'badge-naranja'}">
-                ${esAlDia ? 'Al día' : 'Con deuda'}
-              </span>
-            </div>
-          </div>`;
       } catch {
         header.className = 'resultado-header no-socio';
         header.innerHTML = '❌ &nbsp; Error al conectar con el servidor';
         body.innerHTML = '';
       }
+    }
+
+    async function seleccionarSocio(id) {
+      const header = document.getElementById('resultadoHeader');
+      const body   = document.getElementById('resultadoBody');
+      header.className = 'resultado-header';
+      header.innerHTML = '🔄 &nbsp; Cargando...';
+      body.innerHTML = '';
+      try {
+        const res   = await fetch(`${API}/socios/${id}`, { headers: authHeaders() });
+        const socio = await res.json();
+        mostrarResultadoSocio(socio, header, body);
+      } catch {
+        header.className = 'resultado-header no-socio';
+        header.innerHTML = '❌ &nbsp; Error al cargar el socio';
+      }
+    }
+
+    function mostrarResultadoSocio(socio, header, body) {
+      const esAlDia = socio.estado === 'al-dia';
+      header.className = `resultado-header ${esAlDia ? 'al-dia' : 'con-deuda'}`;
+      header.innerHTML = esAlDia
+        ? `✅ &nbsp; SOCIO AL DÍA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`
+        : `⚠️ &nbsp; SOCIO CON DEUDA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`;
+      const dniDisplay = (!socio.dni || socio.dni.startsWith('SINDNI')) ? '—' : socio.dni;
+      body.innerHTML = `
+        <div class="socio-info-grid">
+          <div class="socio-info-item">
+            <label>Nombre completo</label>
+            <span>${socio.nombre} ${socio.apellido}</span>
+          </div>
+          <div class="socio-info-item">
+            <label>DNI</label>
+            <span>${dniDisplay}</span>
+          </div>
+          <div class="socio-info-item">
+            <label>Teléfono</label>
+            <span>${socio.telefono || '—'}</span>
+          </div>
+          <div class="socio-info-item">
+            <label>Email</label>
+            <span>${socio.email || '—'}</span>
+          </div>
+          <div class="socio-info-item">
+            <label>Cuotas pagas</label>
+            <span style="color:var(--amarillo);font-weight:700;font-size:1.2rem">${socio.cuotas_pagas}</span>
+          </div>
+          <div class="socio-info-item">
+            <label>Estado</label>
+            <span class="badge ${esAlDia ? 'badge-verde' : 'badge-naranja'}">
+              ${esAlDia ? 'Al día' : 'Con deuda'}
+            </span>
+          </div>
+        </div>`;
     }
 
     function limpiarBusqueda() {
