@@ -284,10 +284,8 @@ app.post('/api/solicitudes', async (req, res) => {
   const existeSocio = (await pool.query('SELECT id FROM socios WHERE dni = $1', [dni])).rows[0];
   if (existeSocio) return res.status(409).json({ error: 'Ya existe un socio registrado con ese DNI' });
 
-  const existeSolicitud = (await pool.query(
-    "SELECT id FROM solicitudes WHERE dni = $1 AND estado = 'pendiente'", [dni]
-  )).rows[0];
-  if (existeSolicitud) return res.status(409).json({ error: 'Ya existe una solicitud pendiente con ese DNI' });
+  // Si hay una solicitud pendiente anterior, la eliminamos para permitir reintentar
+  await pool.query("DELETE FROM solicitudes WHERE dni = $1 AND estado = 'pendiente'", [dni]);
 
   const result = await pool.query(
     'INSERT INTO solicitudes (nombre, apellido, dni, telefono) VALUES ($1, $2, $3, $4) RETURNING id',
