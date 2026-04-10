@@ -149,6 +149,47 @@ app.get('/api/socios/:id', auth, async (req, res) => {
   res.json({ ...socio, estado: tieneCuotaMes ? 'al-dia' : 'deuda', cuotas_pagas, cuotas });
 });
 
+// ─── CONSULTA PÚBLICA (sin auth) — para la web recreativoestrellas.com ───
+app.get('/api/public/socio', async (req, res) => {
+  const { dni, q } = req.query;
+  const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+  try {
+    let socios;
+    if (dni) {
+      socios = (await pool.query('SELECT * FROM socios WHERE dni = $1', [dni])).rows;
+    } else if (q) {
+      socios = (await pool.query(
+        "SELECT * FROM socios WHERE apellido ILIKE $1 OR (nombre || ' ' || apellido) ILIKE $1",
+        [`%${q}%`]
+      )).rows;
+    } else {
+      return res.status(400).json({ error: 'Ingresá DNI o apellido' });
+    }
+
+    if (!socios.length) return res.status(404).json({ error: 'No encontrado' });
+
+    const result = await Promise.all(socios.map(async s => {
+      const cuotas_pagas = parseInt((await pool.query(
+        'SELECT COUNT(*) as c FROM cuotas WHERE socio_id = $1 AND pagado = 1', [s.id]
+      )).rows[0].c);
+      const tieneCuotaMes = (await pool.query(
+        'SELECT id FROM cuotas WHERE socio_id = $1 AND pagado = 1 AND mes LIKE $2', [s.id, `${mesActual}%`]
+      )).rows.length > 0;
+      return {
+        nombre: s.nombre,
+        apellido: s.apellido,
+        estado: tieneCuotaMes ? 'al-dia' : 'deuda',
+        cuotas_pagas
+      };
+    }));
+
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 app.post('/api/socios', auth, soloAdmin, async (req, res) => {
   const { nombre, apellido, dni, telefono, email, direccion, fecha_nac, fecha_ingreso, categoria, estado, observaciones } = req.body;
 
