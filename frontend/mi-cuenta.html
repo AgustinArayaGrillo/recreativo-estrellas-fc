@@ -171,6 +171,12 @@
   <script>
     const API = '/api';
 
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    function formatMes(mesStr) {
+      const [year, month] = mesStr.split('-');
+      return `${MESES[parseInt(month) - 1]} ${year}`;
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
       const dni = document.getElementById('dniInput').value.trim();
@@ -215,13 +221,34 @@
         badge.className = 'badge-estado badge-deuda';
       }
 
+      // Detectar si falta la cuota del mes actual
+      const now = new Date();
+      const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const cuotaMesActual = cuotas.find(c => c.mes && c.mes.startsWith(mesActual));
+      const mostrarBotonMesActual = socio.estado === 'deuda' && !cuotaMesActual;
+
       const lista = document.getElementById('listaCuotas');
+
+      // Botón para pagar el mes actual cuando no hay cuota creada todavía
+      let htmlMesActual = '';
+      if (mostrarBotonMesActual) {
+        htmlMesActual = `
+          <div class="cuota-row" style="background:rgba(245,197,24,0.08);border-color:rgba(245,197,24,0.35);">
+            <div>
+              <div class="cuota-mes">${formatMes(mesActual)}</div>
+              <div class="cuota-monto">$10.000</div>
+            </div>
+            <button onclick="pagarMesActual(this)" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
+          </div>`;
+      }
+
       if (!cuotas.length) {
-        lista.innerHTML = '<div class="empty-cuotas">Sin cuotas registradas aún.</div>';
+        lista.innerHTML = htmlMesActual || '<div class="empty-cuotas">Sin cuotas registradas aún.</div>';
         return;
       }
-      lista.innerHTML = cuotas.map(c => {
-        const mes = c.mes || '—';
+
+      lista.innerHTML = htmlMesActual + cuotas.map(c => {
+        const mes = c.mes ? formatMes(c.mes) : '—';
         const monto = c.monto ? `$${Number(c.monto).toLocaleString('es-AR')}` : '';
         if (c.pagado) {
           return `<div class="cuota-row">
@@ -237,14 +264,13 @@
               <div class="cuota-mes">${mes}</div>
               ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
             </div>
-            <button onclick="pagarCuota(${c.id})" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
+            <button onclick="pagarCuota(${c.id}, this)" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
           </div>`;
         }
       }).join('');
     }
 
-    async function pagarCuota(cuotaId) {
-      const btn = event.target;
+    async function pagarCuota(cuotaId, btn) {
       const dni = document.getElementById('dniInput').value.trim();
       btn.textContent = '...';
       btn.disabled = true;
@@ -253,6 +279,26 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dni, cuota_id: cuotaId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        window.location.href = data.init_point;
+      } catch (err) {
+        alert('No se pudo procesar el pago: ' + err.message);
+        btn.textContent = '💳 PAGAR';
+        btn.disabled = false;
+      }
+    }
+
+    async function pagarMesActual(btn) {
+      const dni = document.getElementById('dniInput').value.trim();
+      btn.textContent = '...';
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/socio-pagar-mes-actual`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error');

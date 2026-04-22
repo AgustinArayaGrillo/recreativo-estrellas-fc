@@ -588,6 +588,69 @@ app.post('/api/mp-confirmar', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════
+//  PAGAR CUOTA MES ACTUAL — crea la cuota si no existe todavía
+// ═══════════════════════════════════
+app.post('/api/socio-pagar-mes-actual', async (req, res) => {
+  const { dni } = req.body;
+  if (!dni) return res.status(400).json({ error: 'Faltan datos' });
+
+  const socio = (await pool.query('SELECT * FROM socios WHERE dni = $1', [dni.trim()])).rows[0];
+  if (!socio) return res.status(404).json({ error: 'Socio no encontrado' });
+
+  const now = new Date();
+  const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Verificar si ya existe cuota este mes
+  const cuotaExistente = (await pool.query(
+    'SELECT * FROM cuotas WHERE socio_id = $1 AND mes = $2', [socio.id, mesActual]
+  )).rows[0];
+
+  if (cuotaExistente?.pagado) {
+    return res.status(400).json({ error: 'La cuota de este mes ya está pagada' });
+  }
+
+  // Usar la existente (no pagada) o crear una nueva
+  let cuota = cuotaExistente;
+  if (!cuota) {
+    const result = await pool.query(
+      'INSERT INTO cuotas (socio_id, mes, monto, pagado) VALUES ($1, $2, 10000, 0) RETURNING *',
+      [socio.id, mesActual]
+    );
+    cuota = result.rows[0];
+  }
+
+  const mpClient = getMPClient();
+  if (!mpClient) return res.status(503).json({ error: 'Pagos no disponibles' });
+
+  try {
+    const preference = new Preference(mpClient);
+    const monto = cuota.monto && cuota.monto > 0 ? Number(cuota.monto) : 10000;
+    const pref = await preference.create({
+      body: {
+        items: [{
+          title: `Cuota ${cuota.mes} — Recreativo Estrellas F.C.`,
+          quantity: 1,
+          unit_price: monto,
+          currency_id: 'ARS'
+        }],
+        payer: { name: socio.nombre, surname: socio.apellido },
+        external_reference: `cuota:${socio.id}:${cuota.id}`,
+        back_urls: {
+          success: `${BASE_URL}/pago-cuota-exitoso.html`,
+          failure:  `${BASE_URL}/pago-fallido.html`,
+          pending:  `${BASE_URL}/pago-pendiente.html`
+        },
+        auto_return: 'approved'
+      }
+    });
+    res.json({ init_point: pref.init_point });
+  } catch (err) {
+    console.error('Error MP cuota mes actual:', err);
+    res.status(500).json({ error: 'Error al generar el pago' });
+  }
+});
+
 // ─── CATCH-ALL → login ───
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/login.html'));
