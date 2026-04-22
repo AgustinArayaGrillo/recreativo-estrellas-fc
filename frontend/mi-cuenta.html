@@ -159,7 +159,7 @@
           </div>
         </div>
 
-        <div class="section-title">Historial de Cuotas</div>
+        <div class="section-title">Cuotas</div>
         <div id="listaCuotas"></div>
 
         <button class="btn-salir" onclick="cerrarSesion()">Cerrar sesión</button>
@@ -175,6 +175,24 @@
     function formatMes(mesStr) {
       const [year, month] = mesStr.split('-');
       return `${MESES[parseInt(month) - 1]} ${year}`;
+    }
+
+    // Genera todos los meses desde el ingreso del socio hasta el mes actual
+    function generarMeses(fechaIngreso, cuotas) {
+      const now = new Date();
+      const mesActualStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      let startMes = (fechaIngreso || mesActualStr).substring(0, 7);
+      // Si hay cuotas anteriores al ingreso, las incluimos también
+      cuotas.forEach(c => { if (c.mes && c.mes.substring(0,7) < startMes) startMes = c.mes.substring(0,7); });
+      const [sy, sm] = startMes.split('-').map(Number);
+      const meses = [];
+      let cursor = new Date(sy, sm - 1, 1);
+      const fin = new Date(now.getFullYear(), now.getMonth(), 1);
+      while (cursor <= fin) {
+        meses.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      }
+      return meses.reverse(); // más reciente primero
     }
 
     async function handleLogin(e) {
@@ -221,50 +239,49 @@
         badge.className = 'badge-estado badge-deuda';
       }
 
-      // Detectar si falta la cuota del mes actual
-      const now = new Date();
-      const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const cuotaMesActual = cuotas.find(c => c.mes && c.mes.startsWith(mesActual));
-      const mostrarBotonMesActual = socio.estado === 'deuda' && !cuotaMesActual;
+      // Mapa de cuotas por mes para búsqueda rápida
+      const cuotaMap = {};
+      cuotas.forEach(c => { if (c.mes) cuotaMap[c.mes.substring(0, 7)] = c; });
+
+      // Generar todos los meses desde el ingreso hasta hoy
+      const todosMeses = generarMeses(socio.fecha_ingreso, cuotas);
+
+      const BTN = `background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;`;
 
       const lista = document.getElementById('listaCuotas');
+      lista.innerHTML = todosMeses.map(mes => {
+        const cuota = cuotaMap[mes];
+        const mesLabel = formatMes(mes);
+        const monto = (cuota?.monto && cuota.monto > 0)
+          ? `$${Number(cuota.monto).toLocaleString('es-AR')}`
+          : '$10.000';
 
-      // Botón para pagar el mes actual cuando no hay cuota creada todavía
-      let htmlMesActual = '';
-      if (mostrarBotonMesActual) {
-        htmlMesActual = `
-          <div class="cuota-row" style="background:rgba(245,197,24,0.08);border-color:rgba(245,197,24,0.35);">
-            <div>
-              <div class="cuota-mes">${formatMes(mesActual)}</div>
-              <div class="cuota-monto">$10.000</div>
-            </div>
-            <button onclick="pagarMesActual(this)" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
-          </div>`;
-      }
-
-      if (!cuotas.length) {
-        lista.innerHTML = htmlMesActual || '<div class="empty-cuotas">Sin cuotas registradas aún.</div>';
-        return;
-      }
-
-      lista.innerHTML = htmlMesActual + cuotas.map(c => {
-        const mes = c.mes ? formatMes(c.mes) : '—';
-        const monto = c.monto ? `$${Number(c.monto).toLocaleString('es-AR')}` : '';
-        if (c.pagado) {
+        if (cuota?.pagado) {
+          // ✅ Pagada
           return `<div class="cuota-row">
             <div>
-              <div class="cuota-mes">${mes}</div>
-              ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
+              <div class="cuota-mes">${mesLabel}</div>
+              <div class="cuota-monto">${monto}</div>
             </div>
             <span class="cuota-badge pagada">Pagada</span>
           </div>`;
-        } else {
+        } else if (cuota && !cuota.pagado) {
+          // ⚠ Existe en DB pero sin pagar
           return `<div class="cuota-row" style="background:rgba(231,76,60,0.05);border-color:rgba(231,76,60,0.25);">
             <div>
-              <div class="cuota-mes">${mes}</div>
-              ${monto ? `<div class="cuota-monto">${monto}</div>` : ''}
+              <div class="cuota-mes">${mesLabel}</div>
+              <div class="cuota-monto">${monto}</div>
             </div>
-            <button onclick="pagarCuota(${c.id}, this)" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
+            <button onclick="pagarCuota(${cuota.id}, this)" style="${BTN}">💳 PAGAR</button>
+          </div>`;
+        } else {
+          // Sin cuota creada aún — se crea al momento del pago
+          return `<div class="cuota-row" style="background:rgba(231,76,60,0.05);border-color:rgba(231,76,60,0.25);">
+            <div>
+              <div class="cuota-mes">${mesLabel}</div>
+              <div class="cuota-monto">$10.000</div>
+            </div>
+            <button onclick="pagarMes('${mes}', this)" style="${BTN}">💳 PAGAR</button>
           </div>`;
         }
       }).join('');
@@ -290,7 +307,7 @@
       }
     }
 
-    async function pagarMesActual(btn) {
+    async function pagarMes(mes, btn) {
       const dni = document.getElementById('dniInput').value.trim();
       btn.textContent = '...';
       btn.disabled = true;
@@ -298,7 +315,7 @@
         const res = await fetch(`${API}/socio-pagar-mes-actual`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dni })
+          body: JSON.stringify({ dni, mes })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error');

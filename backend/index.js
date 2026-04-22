@@ -592,7 +592,7 @@ app.post('/api/mp-confirmar', async (req, res) => {
 //  PAGAR CUOTA MES ACTUAL — crea la cuota si no existe todavía
 // ═══════════════════════════════════
 app.post('/api/socio-pagar-mes-actual', async (req, res) => {
-  const { dni } = req.body;
+  const { dni, mes } = req.body;
   if (!dni) return res.status(400).json({ error: 'Faltan datos' });
 
   const socio = (await pool.query('SELECT * FROM socios WHERE dni = $1', [dni.trim()])).rows[0];
@@ -601,13 +601,22 @@ app.post('/api/socio-pagar-mes-actual', async (req, res) => {
   const now = new Date();
   const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // Verificar si ya existe cuota este mes
+  // Validar mes si se envía
+  const mesTarget = mes || mesActual;
+  if (!/^\d{4}-\d{2}$/.test(mesTarget)) {
+    return res.status(400).json({ error: 'Formato de mes inválido' });
+  }
+  if (mesTarget > mesActual) {
+    return res.status(400).json({ error: 'No se puede pagar un mes futuro' });
+  }
+
+  // Verificar si ya existe cuota para ese mes
   const cuotaExistente = (await pool.query(
-    'SELECT * FROM cuotas WHERE socio_id = $1 AND mes = $2', [socio.id, mesActual]
+    'SELECT * FROM cuotas WHERE socio_id = $1 AND mes = $2', [socio.id, mesTarget]
   )).rows[0];
 
   if (cuotaExistente?.pagado) {
-    return res.status(400).json({ error: 'La cuota de este mes ya está pagada' });
+    return res.status(400).json({ error: 'Esta cuota ya está pagada' });
   }
 
   // Usar la existente (no pagada) o crear una nueva
@@ -615,7 +624,7 @@ app.post('/api/socio-pagar-mes-actual', async (req, res) => {
   if (!cuota) {
     const result = await pool.query(
       'INSERT INTO cuotas (socio_id, mes, monto, pagado) VALUES ($1, $2, 10000, 0) RETURNING *',
-      [socio.id, mesActual]
+      [socio.id, mesTarget]
     );
     cuota = result.rows[0];
   }
