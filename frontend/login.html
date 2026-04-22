@@ -300,6 +300,27 @@
   <script>
     const API = '/api';
 
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    function formatMes(mesStr) {
+      const [year, month] = mesStr.split('-');
+      return `${MESES[parseInt(month) - 1]} ${year}`;
+    }
+    function generarMeses(fechaIngreso, cuotas) {
+      const now = new Date();
+      const mesActualStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      let startMes = (fechaIngreso || mesActualStr).substring(0, 7);
+      cuotas.forEach(c => { if (c.mes && c.mes.substring(0,7) < startMes) startMes = c.mes.substring(0,7); });
+      const [sy, sm] = startMes.split('-').map(Number);
+      const meses = [];
+      let cursor = new Date(sy, sm - 1, 1);
+      const fin = new Date(now.getFullYear(), now.getMonth(), 1);
+      while (cursor <= fin) {
+        meses.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      }
+      return meses.reverse();
+    }
+
     function togglePass() {
       const input = document.getElementById('password');
       const icon  = document.getElementById('togglePassword');
@@ -365,8 +386,7 @@
       if (!isAdmin) document.getElementById('dniSocio').focus();
     }
 
-    async function pagarCuota(dni, cuotaId) {
-      const btn = event.target;
+    async function pagarCuota(dni, cuotaId, btn) {
       btn.textContent = '...';
       btn.disabled = true;
       try {
@@ -374,6 +394,25 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dni, cuota_id: cuotaId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        window.location.href = data.init_point;
+      } catch (err) {
+        alert('No se pudo procesar el pago: ' + err.message);
+        btn.textContent = '💳 PAGAR';
+        btn.disabled = false;
+      }
+    }
+
+    async function pagarMes(dni, mes, btn) {
+      btn.textContent = '...';
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/socio-pagar-mes-actual`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni, mes })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error');
@@ -421,32 +460,44 @@
             ${estadoHTML}
           </div>`;
 
-        // Cuotas
+        // Cuotas — mostrar todos los meses desde el ingreso hasta hoy
         const cuotasEl = document.getElementById('socioCuotas');
-        if (!cuotas.length) {
-          cuotasEl.innerHTML = '<div style="text-align:center;color:var(--gris);font-size:0.85rem;padding:1rem 0;">Sin cuotas registradas aún.</div>';
-        } else {
-          cuotasEl.innerHTML = cuotas.map(c => {
-            const monto = c.monto ? `$${Number(c.monto).toLocaleString('es-AR')}` : '';
-            if (c.pagado) {
-              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(255,255,255,0.03);border:1px solid var(--negro-borde);">
-                <div>
-                  <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${c.mes}</div>
-                  ${monto ? `<div style="font-size:0.78rem;color:var(--gris);">${monto}</div>` : ''}
-                </div>
-                <span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.55rem;border-radius:20px;background:rgba(39,174,96,0.15);color:#27ae60;">Pagada</span>
-              </div>`;
-            } else {
-              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(231,76,60,0.05);border:1px solid rgba(231,76,60,0.25);">
-                <div>
-                  <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${c.mes}</div>
-                  ${monto ? `<div style="font-size:0.78rem;color:var(--gris);">${monto}</div>` : ''}
-                </div>
-                <button onclick="pagarCuota('${socio.dni}', ${c.id})" style="background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;">💳 PAGAR</button>
-              </div>`;
-            }
-          }).join('');
-        }
+        const cuotaMap = {};
+        cuotas.forEach(c => { if (c.mes) cuotaMap[c.mes.substring(0, 7)] = c; });
+        const todosMeses = generarMeses(socio.fecha_ingreso, cuotas);
+        const BTN = `background:var(--amarillo);color:var(--negro);border:none;border-radius:6px;padding:0.3rem 0.75rem;font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:1px;cursor:pointer;`;
+
+        cuotasEl.innerHTML = todosMeses.map(mes => {
+          const c = cuotaMap[mes];
+          const mesLabel = formatMes(mes);
+          const monto = (c?.monto && c.monto > 0) ? `$${Number(c.monto).toLocaleString('es-AR')}` : '$10.000';
+
+          if (c?.pagado) {
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(255,255,255,0.03);border:1px solid var(--negro-borde);">
+              <div>
+                <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${mesLabel}</div>
+                <div style="font-size:0.78rem;color:var(--gris);">${monto}</div>
+              </div>
+              <span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.55rem;border-radius:20px;background:rgba(39,174,96,0.15);color:#27ae60;">Pagada</span>
+            </div>`;
+          } else if (c && !c.pagado) {
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(231,76,60,0.05);border:1px solid rgba(231,76,60,0.25);">
+              <div>
+                <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${mesLabel}</div>
+                <div style="font-size:0.78rem;color:var(--gris);">${monto}</div>
+              </div>
+              <button onclick="pagarCuota('${socio.dni}', ${c.id}, this)" style="${BTN}">💳 PAGAR</button>
+            </div>`;
+          } else {
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.35rem;background:rgba(231,76,60,0.05);border:1px solid rgba(231,76,60,0.25);">
+              <div>
+                <div style="font-size:0.88rem;color:var(--blanco);font-weight:500;">${mesLabel}</div>
+                <div style="font-size:0.78rem;color:var(--gris);">$10.000</div>
+              </div>
+              <button onclick="pagarMes('${socio.dni}', '${mes}', this)" style="${BTN}">💳 PAGAR</button>
+            </div>`;
+          }
+        }).join('');
 
         resultado.style.display = 'block';
       } catch (ex) {
