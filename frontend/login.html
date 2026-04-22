@@ -409,6 +409,18 @@
       window.location.href = 'dashboard.html';
     }
 
+    // Si viene con ?dni=XXXX desde la web pública, abrir tab socio y buscar automáticamente
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const dni = params.get('dni');
+      if (dni) {
+        switchTab('socio');
+        document.getElementById('dniSocio').value = dni;
+        // Disparar búsqueda automáticamente
+        document.getElementById('btnSocio').click();
+      }
+    })();
+
     function switchTab(tab) {
       const isAdmin = tab === 'admin';
       document.getElementById('panelAdmin').style.display = isAdmin ? 'block' : 'none';
