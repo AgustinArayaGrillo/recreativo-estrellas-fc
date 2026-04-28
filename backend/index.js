@@ -177,8 +177,10 @@ app.get('/api/public/socio', async (req, res) => {
         'SELECT id FROM cuotas WHERE socio_id = $1 AND pagado = 1 AND mes LIKE $2', [s.id, `${mesActual}%`]
       )).rows.length > 0;
       return {
+        id: s.id,
         nombre: s.nombre,
         apellido: s.apellido,
+        dni: s.dni,
         estado: tieneCuotaMes ? 'al-dia' : 'deuda',
         cuotas_pagas
       };
@@ -650,7 +652,8 @@ app.post('/api/socio-pagar-mes-actual', async (req, res) => {
           failure:  `${BASE_URL}/pago-fallido.html`,
           pending:  `${BASE_URL}/pago-pendiente.html`
         },
-        auto_return: 'approved'
+        auto_return: 'approved',
+        notification_url: `${BASE_URL}/api/mp-webhook`
       }
     });
     res.json({ init_point: pref.init_point });
