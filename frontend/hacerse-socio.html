@@ -306,19 +306,25 @@
     <!-- Card: Ya soy socio — pagar cuota -->
     <div class="card" id="panelExistente">
       <div class="card-title">Pagar cuota mensual</div>
-      <p class="card-sub">Ingresá tu DNI para pagar la cuota del mes actual.</p>
+      <p class="card-sub">Ingresá tu DNI y seleccioná el mes a pagar.</p>
 
       <div class="form-group">
         <label>DNI *</label>
         <input type="text" id="dniCuota" placeholder="12345678" inputmode="numeric"
-          style="width:100%;background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.75rem 1rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.88rem;"
-          onkeydown="if(event.key==='Enter') pagarCuota()" />
+          style="width:100%;background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.75rem 1rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.88rem;" />
+      </div>
+
+      <div class="form-group">
+        <label>Mes a pagar *</label>
+        <select id="selectMes"
+          style="width:100%;background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.75rem 1rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.88rem;cursor:pointer;">
+        </select>
       </div>
 
       <div class="precio-box">
         <div class="label">
           Cuota mensual
-          <strong>Mes actual</strong>
+          <strong id="labelMesSeleccionado">Mes actual</strong>
         </div>
         <div class="monto">$10.000</div>
       </div>
@@ -349,6 +355,32 @@
       document.getElementById('tabExistente').style.color       = esNuevo ? 'var(--gris-claro)' : 'var(--negro)';
     }
 
+    // Generar opciones de meses (últimos 12 meses)
+    (function generarMeses() {
+      const sel    = document.getElementById('selectMes');
+      const label  = document.getElementById('labelMesSeleccionado');
+      const MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      const now    = new Date();
+
+      for (let i = 0; i < 12; i++) {
+        const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const txt = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+        const opt = document.createElement('option');
+        opt.value       = val;
+        opt.textContent = txt;
+        sel.appendChild(opt);
+      }
+
+      // Actualizar label del precio-box al cambiar el mes
+      sel.addEventListener('change', () => {
+        const [y, m] = sel.value.split('-');
+        label.textContent = `${MESES[parseInt(m) - 1]} ${y}`;
+      });
+      // Disparar una vez para mostrar el mes inicial
+      sel.dispatchEvent(new Event('change'));
+    })();
+
     // Mostrar "YA SOY SOCIO" por defecto, salvo que venga con ?nuevo=1
     if (new URLSearchParams(window.location.search).get('nuevo') !== '1') {
       switchTab('existente');
@@ -358,6 +390,7 @@
       const btn    = document.getElementById('btnPagarCuota');
       const alerta = document.getElementById('alertaCuotaError');
       const dni    = document.getElementById('dniCuota').value.trim();
+      const mes    = document.getElementById('selectMes').value;
       alerta.classList.remove('visible');
 
       if (!dni) {
@@ -373,7 +406,7 @@
         const res  = await fetch(`${API}/socio-pagar-mes-actual`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ dni })
+          body:    JSON.stringify({ dni, mes })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al generar el pago');
