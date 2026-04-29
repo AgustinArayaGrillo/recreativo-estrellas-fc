@@ -250,7 +250,20 @@
       <div class="divider"></div>
     </div>
 
-    <div class="card">
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;margin-bottom:1.25rem;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);">
+      <button id="tabNuevo" onclick="switchTab('nuevo')"
+        style="flex:1;padding:0.75rem;background:var(--amarillo);color:var(--negro);border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;">
+        NUEVO SOCIO
+      </button>
+      <button id="tabExistente" onclick="switchTab('existente')"
+        style="flex:1;padding:0.75rem;background:var(--negro);color:var(--gris-claro);border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;border-left:1px solid rgba(255,255,255,0.1);">
+        YA SOY SOCIO
+      </button>
+    </div>
+
+    <!-- Card: Nuevo socio -->
+    <div class="card" id="panelNuevo">
       <div class="card-title">Hacerme socio</div>
       <p class="card-sub">Completá tus datos y pagá la primera cuota para unirte al club.</p>
 
@@ -290,14 +303,88 @@
       </form>
     </div>
 
+    <!-- Card: Ya soy socio — pagar cuota -->
+    <div class="card" id="panelExistente" style="display:none;">
+      <div class="card-title">Pagar cuota mensual</div>
+      <p class="card-sub">Ingresá tu DNI para pagar la cuota del mes actual.</p>
+
+      <div class="form-group">
+        <label>DNI *</label>
+        <input type="text" id="dniCuota" placeholder="12345678" inputmode="numeric"
+          style="width:100%;background:var(--negro);border:1.5px solid var(--negro-borde);border-radius:8px;padding:0.75rem 1rem;color:var(--blanco);font-family:'Poppins',sans-serif;font-size:0.88rem;"
+          onkeydown="if(event.key==='Enter') pagarCuota()" />
+      </div>
+
+      <div class="precio-box">
+        <div class="label">
+          Cuota mensual
+          <strong>Mes actual</strong>
+        </div>
+        <div class="monto">$10.000</div>
+      </div>
+
+      <button class="btn-pagar" id="btnPagarCuota" onclick="pagarCuota()">
+        PAGAR CON MERCADO PAGO
+      </button>
+
+      <div class="alerta error" id="alertaCuotaError"></div>
+    </div>
+
     <div class="footer-link">
-      ¿Ya sos socio? <a href="login.html">Ingresá al sistema</a>
+      ¿Necesitás ver tu historial? <a href="login.html">Ingresá al sistema</a>
     </div>
 
   </div>
 
   <script>
     const API = '/api';
+
+    function switchTab(tab) {
+      const esNuevo = tab === 'nuevo';
+      document.getElementById('panelNuevo').style.display     = esNuevo ? '' : 'none';
+      document.getElementById('panelExistente').style.display = esNuevo ? 'none' : '';
+      document.getElementById('tabNuevo').style.background      = esNuevo ? 'var(--amarillo)' : 'var(--negro)';
+      document.getElementById('tabNuevo').style.color           = esNuevo ? 'var(--negro)' : 'var(--gris-claro)';
+      document.getElementById('tabExistente').style.background  = esNuevo ? 'var(--negro)' : 'var(--amarillo)';
+      document.getElementById('tabExistente').style.color       = esNuevo ? 'var(--gris-claro)' : 'var(--negro)';
+    }
+
+    // Si viene con ?socio=1 desde la web pública, mostrar pestaña de pago
+    if (new URLSearchParams(window.location.search).get('socio') === '1') {
+      switchTab('existente');
+    }
+
+    async function pagarCuota() {
+      const btn    = document.getElementById('btnPagarCuota');
+      const alerta = document.getElementById('alertaCuotaError');
+      const dni    = document.getElementById('dniCuota').value.trim();
+      alerta.classList.remove('visible');
+
+      if (!dni) {
+        alerta.textContent = 'Ingresá tu DNI';
+        alerta.classList.add('visible');
+        return;
+      }
+
+      btn.textContent = 'PROCESANDO...';
+      btn.disabled = true;
+
+      try {
+        const res  = await fetch(`${API}/socio-pagar-mes-actual`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ dni })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al generar el pago');
+        window.location.href = data.init_point;
+      } catch (err) {
+        alerta.textContent = err.message;
+        alerta.classList.add('visible');
+        btn.textContent = 'PAGAR CON MERCADO PAGO';
+        btn.disabled = false;
+      }
+    }
 
     async function handleSubmit(e) {
       e.preventDefault();
