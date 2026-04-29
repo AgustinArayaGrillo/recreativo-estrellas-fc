@@ -253,17 +253,17 @@
     <!-- Tabs -->
     <div style="display:flex;gap:0;margin-bottom:1.25rem;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);">
       <button id="tabNuevo" onclick="switchTab('nuevo')"
-        style="flex:1;padding:0.75rem;background:var(--amarillo);color:var(--negro);border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;">
+        style="flex:1;padding:0.75rem;background:var(--negro);color:var(--gris-claro);border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;">
         NUEVO SOCIO
       </button>
       <button id="tabExistente" onclick="switchTab('existente')"
-        style="flex:1;padding:0.75rem;background:var(--negro);color:var(--gris-claro);border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;border-left:1px solid rgba(255,255,255,0.1);">
+        style="flex:1;padding:0.75rem;background:var(--amarillo);color:var(--negro);border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;border-left:1px solid rgba(255,255,255,0.1);">
         YA SOY SOCIO
       </button>
     </div>
 
     <!-- Card: Nuevo socio -->
-    <div class="card" id="panelNuevo">
+    <div class="card" id="panelNuevo" style="display:none;">
       <div class="card-title">Hacerme socio</div>
       <p class="card-sub">Completá tus datos y pagá la primera cuota para unirte al club.</p>
 
@@ -304,7 +304,7 @@
     </div>
 
     <!-- Card: Ya soy socio — pagar cuota -->
-    <div class="card" id="panelExistente" style="display:none;">
+    <div class="card" id="panelExistente">
       <div class="card-title">Pagar cuota mensual</div>
       <p class="card-sub">Ingresá tu DNI para pagar la cuota del mes actual.</p>
 
@@ -349,8 +349,8 @@
       document.getElementById('tabExistente').style.color       = esNuevo ? 'var(--gris-claro)' : 'var(--negro)';
     }
 
-    // Si viene con ?socio=1 desde la web pública, mostrar pestaña de pago
-    if (new URLSearchParams(window.location.search).get('socio') === '1') {
+    // Mostrar "YA SOY SOCIO" por defecto, salvo que venga con ?nuevo=1
+    if (new URLSearchParams(window.location.search).get('nuevo') !== '1') {
       switchTab('existente');
     }
 
