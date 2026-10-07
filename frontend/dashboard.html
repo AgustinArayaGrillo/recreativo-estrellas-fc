@@ -293,6 +293,11 @@
         ? `✅ &nbsp; SOCIO AL DÍA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`
         : `⚠️ &nbsp; SOCIO CON DEUDA — ${(socio.nombre + ' ' + socio.apellido).toUpperCase()}`;
       const dniDisplay = (!socio.dni || socio.dni.startsWith('SINDNI')) ? '—' : socio.dni;
+      const esPuerta = session?.rol === 'puerta';
+      const telDisplay = esPuerta
+        ? (socio.telefono ? socio.telefono.slice(0, 3) + ' ****' + socio.telefono.slice(-2) : '—')
+        : (socio.telefono || '—');
+      const emailDisplay = esPuerta ? '••••••••' : (socio.email || '—');
       body.innerHTML = `
         <div class="socio-info-grid">
           <div class="socio-info-item">
@@ -305,11 +310,11 @@
           </div>
           <div class="socio-info-item">
             <label>Teléfono</label>
-            <span>${socio.telefono || '—'}</span>
+            <span>${telDisplay}</span>
           </div>
           <div class="socio-info-item">
             <label>Email</label>
-            <span>${socio.email || '—'}</span>
+            <span>${emailDisplay}</span>
           </div>
           <div class="socio-info-item">
             <label>Cuotas pagas</label>
