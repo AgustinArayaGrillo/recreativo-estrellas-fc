@@ -65,11 +65,12 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/stats', auth, async (req, res) => {
   const mes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
-  const total  = parseInt((await pool.query('SELECT COUNT(*) as c FROM socios')).rows[0].c);
+  const total  = parseInt((await pool.query('SELECT COALESCE(MAX(id), 0) as c FROM socios')).rows[0].c);
+  const activos = parseInt((await pool.query('SELECT COUNT(*) as c FROM socios')).rows[0].c);
   const alDia  = parseInt((await pool.query(
     "SELECT COUNT(DISTINCT socio_id) as c FROM cuotas WHERE pagado = 1 AND mes LIKE $1", [`${mes}%`]
   )).rows[0].c);
-  const deuda  = total - alDia;
+  const deuda  = activos - alDia;
   const recaud = parseFloat((await pool.query(
     "SELECT COALESCE(SUM(monto),0) as total FROM cuotas WHERE pagado = 1 AND mes LIKE $1",
     [`${mes}%`]
